@@ -1,13 +1,29 @@
 """CLI interface for AutoML Tabular workflows."""
 
+from typing import Any
+
 import click
-from google.cloud import aiplatform
+from google.cloud import aiplatform, storage
 
 from tabflows.config import TabularPipelineConfig
 from tabflows.pipeline import (
     build_automl_tabular_pipeline,
     build_skip_architecture_search_pipeline,
+    setup_gcp_resources,
 )
+
+
+def _get_config(
+    project: str | None, location: str | None, bucket: str | None
+) -> TabularPipelineConfig:
+    kwargs: dict[str, Any] = {}
+    if project:
+        kwargs["project_id"] = project
+    if location:
+        kwargs["location"] = location
+    if bucket:
+        kwargs["bucket_uri"] = bucket
+    return TabularPipelineConfig(**kwargs)
 
 
 @click.group()
@@ -16,16 +32,49 @@ def main() -> None:
 
 
 @main.command()
-@click.option("--project", required=True, help="GCP Project ID")
-@click.option("--location", default="us-central1", help="GCP Region")
-@click.option("--bucket", required=True, help="GCS Bucket URI (gs://...)")
+@click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
+@click.option("--location", default=None, help="GCP Region (defaults to .env)")
+@click.option("--bucket", default=None, help="GCS Bucket URI (defaults to .env)")
+def setup(project: str | None, location: str | None, bucket: str | None) -> None:
+    """Provision GCS bucket and upload transform configuration JSON asset."""
+    config = _get_config(project, location, bucket)
+
+    if not config.project_id or not config.bucket_uri:
+        click.echo("Error: Both project_id and bucket_uri must be provided or set in .env")
+        raise click.Abort()
+
+    click.echo(f"Setting up GCP resources for project '{config.project_id}'...")
+    storage_client = storage.Client(project=config.project_id)
+    summary = setup_gcp_resources(config, storage_client=storage_client)
+
+    click.echo(f"GCS Bucket: {summary['bucket_uri']} (created: {summary['bucket_created']})")
+    click.echo(f"Transform config uploaded to: {summary['transform_config_path']}")
+    click.echo("Setup completed successfully.")
+
+
+@main.command()
+@click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
+@click.option("--location", default=None, help="GCP Region (defaults to .env)")
+@click.option("--bucket", default=None, help="GCS Bucket URI (defaults to .env)")
 @click.option("--job-id", default="automl-tabular-run", help="Pipeline Job ID")
 @click.option("--compile-only", is_flag=True, help="Only compile template without submitting job")
-def run_automl(project: str, location: str, bucket: str, job_id: str, compile_only: bool) -> None:
+def run_automl(
+    project: str | None,
+    location: str | None,
+    bucket: str | None,
+    job_id: str,
+    compile_only: bool,
+) -> None:
     """Build and submit standard AutoML Tabular pipeline."""
-    config = TabularPipelineConfig(project_id=project, location=location, bucket_uri=bucket)
+    config = _get_config(project, location, bucket)
 
-    click.echo(f"Building AutoML Tabular Pipeline for project {project} in {location}...")
+    if not config.project_id or not config.bucket_uri:
+        click.echo("Error: Both project_id and bucket_uri must be provided or set in .env")
+        raise click.Abort()
+
+    click.echo(
+        f"Building AutoML Tabular Pipeline for project {config.project_id} in {config.location}..."
+    )
     template_path, parameter_values = build_automl_tabular_pipeline(config)
     click.echo(f"Template compiled at: {template_path}")
 
@@ -33,10 +82,10 @@ def run_automl(project: str, location: str, bucket: str, job_id: str, compile_on
         click.echo("Compile-only mode requested. Skipping job submission.")
         return
 
-    aiplatform.init(project=project, location=location)
+    aiplatform.init(project=config.project_id, location=config.location)
     job = aiplatform.PipelineJob(
         display_name=job_id,
-        location=location,
+        location=config.location,
         template_path=template_path,
         job_id=job_id,
         pipeline_root=config.root_dir,
@@ -48,9 +97,9 @@ def run_automl(project: str, location: str, bucket: str, job_id: str, compile_on
 
 
 @main.command()
-@click.option("--project", required=True, help="GCP Project ID")
-@click.option("--location", default="us-central1", help="GCP Region")
-@click.option("--bucket", required=True, help="GCS Bucket URI (gs://...)")
+@click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
+@click.option("--location", default=None, help="GCP Region (defaults to .env)")
+@click.option("--bucket", default=None, help="GCS Bucket URI (defaults to .env)")
 @click.option(
     "--tuning-artifact-uri",
     required=True,
@@ -59,17 +108,21 @@ def run_automl(project: str, location: str, bucket: str, job_id: str, compile_on
 @click.option("--job-id", default="automl-tabular-skip-search-run", help="Pipeline Job ID")
 @click.option("--compile-only", is_flag=True, help="Only compile template without submitting job")
 def run_skip_search(
-    project: str,
-    location: str,
-    bucket: str,
+    project: str | None,
+    location: str | None,
+    bucket: str | None,
     tuning_artifact_uri: str,
     job_id: str,
     compile_only: bool,
 ) -> None:
     """Build and submit Skip Architecture Search AutoML Tabular pipeline."""
-    config = TabularPipelineConfig(project_id=project, location=location, bucket_uri=bucket)
+    config = _get_config(project, location, bucket)
 
-    click.echo(f"Building Skip Architecture Search Pipeline for project {project}...")
+    if not config.project_id or not config.bucket_uri:
+        click.echo("Error: Both project_id and bucket_uri must be provided or set in .env")
+        raise click.Abort()
+
+    click.echo(f"Building Skip Architecture Search Pipeline for project {config.project_id}...")
     template_path, parameter_values = build_skip_architecture_search_pipeline(
         config, tuning_artifact_uri
     )
@@ -79,10 +132,10 @@ def run_skip_search(
         click.echo("Compile-only mode requested. Skipping job submission.")
         return
 
-    aiplatform.init(project=project, location=location)
+    aiplatform.init(project=config.project_id, location=config.location)
     job = aiplatform.PipelineJob(
         display_name=job_id,
-        location=location,
+        location=config.location,
         template_path=template_path,
         job_id=job_id,
         pipeline_root=config.root_dir,

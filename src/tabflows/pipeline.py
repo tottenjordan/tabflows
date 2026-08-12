@@ -49,6 +49,40 @@ def write_auto_transformations(
     write_to_gcs(storage_client, uri, json.dumps(transformations))
 
 
+def setup_gcp_resources(
+    config: TabularPipelineConfig,
+    storage_client: storage.Client | None = None,
+) -> dict[str, str]:
+    """Create Cloud Storage bucket if missing and upload initial transform_config JSON.
+
+    Returns summary dictionary of created and configured assets.
+    """
+    if storage_client is None:
+        storage_client = storage.Client(project=config.project_id)
+
+    bucket_name, _ = get_bucket_name_and_path(config.bucket_uri)
+
+    bucket = storage_client.bucket(bucket_name)
+    if not bucket.exists():
+        bucket = storage_client.create_bucket(
+            bucket_or_name=bucket_name,
+            project=config.project_id,
+            location=config.location,
+        )
+        bucket_created = True
+    else:
+        bucket_created = False
+
+    write_auto_transformations(storage_client, config.transform_config_path, config.features)
+
+    return {
+        "bucket_name": bucket_name,
+        "bucket_uri": config.bucket_uri,
+        "bucket_created": str(bucket_created),
+        "transform_config_path": config.transform_config_path,
+    }
+
+
 def get_task_detail(task_details: list[Any], task_name: str) -> Any | None:
     """Retrieve task detail object by task name from Vertex AI Pipeline job output."""
     for task in task_details:

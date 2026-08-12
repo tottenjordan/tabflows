@@ -7,6 +7,7 @@ from tabflows.pipeline import (
     generate_auto_transformation,
     get_bucket_name_and_path,
     get_task_detail,
+    setup_gcp_resources,
 )
 
 __version__ = "0.1.0"
@@ -17,4 +18,5 @@ __all__ = [
     "generate_auto_transformation",
     "get_bucket_name_and_path",
     "get_task_detail",
+    "setup_gcp_resources",
 ]

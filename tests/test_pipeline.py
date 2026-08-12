@@ -11,6 +11,7 @@ from tabflows.pipeline import (
     generate_auto_transformation,
     get_bucket_name_and_path,
     get_task_detail,
+    setup_gcp_resources,
 )
 
 
@@ -37,6 +38,29 @@ def test_get_bucket_name_and_path_valid():
 def test_get_bucket_name_and_path_invalid():
     with pytest.raises(ValueError, match="Invalid GCS URI"):
         get_bucket_name_and_path("http://example.com/file.json")
+
+
+def test_setup_gcp_resources_mocked():
+    mock_storage_client = MagicMock()
+    mock_bucket = MagicMock()
+    mock_bucket.exists.return_value = False
+    mock_storage_client.bucket.return_value = mock_bucket
+    mock_storage_client.create_bucket.return_value = mock_bucket
+
+    config = TabularPipelineConfig(
+        project_id="test-proj",
+        bucket_uri="gs://test-bucket",
+    )
+
+    summary = setup_gcp_resources(config, storage_client=mock_storage_client)
+
+    assert summary["bucket_name"] == "test-bucket"
+    assert summary["bucket_created"] == "True"
+    assert (
+        summary["transform_config_path"]
+        == "gs://test-bucket/automl_tabular_pipeline/transform_config_unique.json"
+    )
+    mock_storage_client.create_bucket.assert_called_once()
 
 
 def test_get_task_detail():

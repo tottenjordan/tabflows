@@ -43,21 +43,28 @@
 
 ### Usage
 
-#### 1. Command Line Interface (CLI)
+#### 1. Provision GCP Resources
+
+Provision the Cloud Storage bucket and upload initial feature transformation config JSON:
+
+```bash
+# Using CLI (reads project and bucket from .env automatically)
+uv run tabflows setup
+
+# Or using script
+uv run python scripts/setup_gcp_resources.py
+```
+
+#### 2. Command Line Interface (CLI)
 
 Compile or launch an AutoML Tabular pipeline using the `tabflows` CLI:
 
 ```bash
 # Compile standard AutoML Tabular pipeline template
-uv run tabflows run-automl \
-    --project "your-gcp-project-id" \
-    --bucket "gs://your-bucket-name" \
-    --compile-only
+uv run tabflows run-automl --compile-only
 
 # Run Skip Architecture Search pipeline using Stage 1 tuning result artifact
 uv run tabflows run-skip-search \
-    --project "your-gcp-project-id" \
-    --bucket "gs://your-bucket-name" \
     --tuning-artifact-uri "gs://your-bucket-name/automl_tabular_pipeline/tuning_result_artifact" \
     --compile-only
 ```
