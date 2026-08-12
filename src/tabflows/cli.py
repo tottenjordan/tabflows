@@ -1,5 +1,6 @@
 """CLI interface for AutoML Tabular workflows."""
 
+import datetime
 from typing import Any
 
 import click
@@ -56,14 +57,20 @@ def setup(project: str | None, location: str | None, bucket: str | None) -> None
 @click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
 @click.option("--location", default=None, help="GCP Region (defaults to .env)")
 @click.option("--bucket", default=None, help="GCS Bucket URI (defaults to .env)")
-@click.option("--job-id", default="automl-tabular-run", help="Pipeline Job ID")
+@click.option("--job-id", default=None, help="Pipeline Job ID")
 @click.option("--compile-only", is_flag=True, help="Only compile template without submitting job")
+@click.option(
+    "--async-mode",
+    is_flag=True,
+    help="Submit job asynchronously to Vertex AI without blocking",
+)
 def run_automl(
     project: str | None,
     location: str | None,
     bucket: str | None,
-    job_id: str,
+    job_id: str | None,
     compile_only: bool,
+    async_mode: bool,
 ) -> None:
     """Build and submit standard AutoML Tabular pipeline."""
     config = _get_config(project, location, bucket)
@@ -71,6 +78,10 @@ def run_automl(
     if not config.project_id or not config.bucket_uri:
         click.echo("Error: Both project_id and bucket_uri must be provided or set in .env")
         raise click.Abort()
+
+    if not job_id:
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        job_id = f"automl-tabular-{timestamp}"
 
     click.echo(
         f"Building AutoML Tabular Pipeline for project {config.project_id} in {config.location}..."
@@ -92,8 +103,14 @@ def run_automl(
         parameter_values=parameter_values,
         enable_caching=False,
     )
-    click.echo("Submitting pipeline job to Vertex AI...")
-    job.run()
+
+    if async_mode:
+        click.echo(f"Submitting pipeline job '{job_id}' asynchronously to Vertex AI...")
+        job.submit()
+        click.echo("Pipeline job submitted successfully.")
+    else:
+        click.echo(f"Submitting pipeline job '{job_id}' to Vertex AI...")
+        job.run()
 
 
 @main.command()
@@ -105,15 +122,21 @@ def run_automl(
     required=True,
     help="URI of tuning_result_output artifact from Stage 1",
 )
-@click.option("--job-id", default="automl-tabular-skip-search-run", help="Pipeline Job ID")
+@click.option("--job-id", default=None, help="Pipeline Job ID")
 @click.option("--compile-only", is_flag=True, help="Only compile template without submitting job")
+@click.option(
+    "--async-mode",
+    is_flag=True,
+    help="Submit job asynchronously to Vertex AI without blocking",
+)
 def run_skip_search(
     project: str | None,
     location: str | None,
     bucket: str | None,
     tuning_artifact_uri: str,
-    job_id: str,
+    job_id: str | None,
     compile_only: bool,
+    async_mode: bool,
 ) -> None:
     """Build and submit Skip Architecture Search AutoML Tabular pipeline."""
     config = _get_config(project, location, bucket)
@@ -121,6 +144,10 @@ def run_skip_search(
     if not config.project_id or not config.bucket_uri:
         click.echo("Error: Both project_id and bucket_uri must be provided or set in .env")
         raise click.Abort()
+
+    if not job_id:
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        job_id = f"automl-skip-search-{timestamp}"
 
     click.echo(f"Building Skip Architecture Search Pipeline for project {config.project_id}...")
     template_path, parameter_values = build_skip_architecture_search_pipeline(
@@ -142,8 +169,14 @@ def run_skip_search(
         parameter_values=parameter_values,
         enable_caching=False,
     )
-    click.echo("Submitting pipeline job to Vertex AI...")
-    job.run()
+
+    if async_mode:
+        click.echo(f"Submitting pipeline job '{job_id}' asynchronously to Vertex AI...")
+        job.submit()
+        click.echo("Pipeline job submitted successfully.")
+    else:
+        click.echo(f"Submitting pipeline job '{job_id}' to Vertex AI...")
+        job.run()
 
 
 if __name__ == "__main__":
