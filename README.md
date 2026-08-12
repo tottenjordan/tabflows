@@ -25,7 +25,7 @@
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/jordantotten/tabflows.git
+   git clone https://github.com/tottenjordan/tabflows.git
    cd tabflows
    ```
 
