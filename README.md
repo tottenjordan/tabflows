@@ -34,6 +34,13 @@
    uv sync --all-groups
    ```
 
+3. **Configure Environment Variables**:
+   Copy `.env.example` to `.env` and fill in your GCP project and GCS bucket settings:
+   ```bash
+   cp .env.example .env
+   ```
+
+
 ### Usage
 
 #### 1. Command Line Interface (CLI)

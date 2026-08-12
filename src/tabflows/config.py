@@ -2,23 +2,58 @@
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class TabularPipelineConfig(BaseModel):
-    """Configuration options for building AutoML Tabular pipelines."""
+class TabularPipelineConfig(BaseSettings):
+    """Configuration options for building AutoML Tabular pipelines.
 
-    project_id: str = Field(..., description="Google Cloud Project ID")
-    location: str = Field(default="us-central1", description="GCP Region")
-    bucket_uri: str = Field(..., description="Cloud Storage bucket URI (gs://...)")
+    Loads environment variables from `.env` file automatically if present.
+    """
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        populate_by_name=True,
+    )
+
+    project_id: str = Field(
+        default="",
+        description="Google Cloud Project ID",
+        validation_alias="GCP_PROJECT",
+    )
+    location: str = Field(
+        default="us-central1",
+        description="GCP Region",
+        validation_alias="GCP_LOCATION",
+    )
+    bucket_uri: str = Field(
+        default="",
+        description="Cloud Storage bucket URI (gs://...)",
+        validation_alias="GCP_BUCKET_URI",
+    )
     root_dir_name: str = Field(
-        default="automl_tabular_pipeline", description="Root pipeline output folder"
+        default="automl_tabular_pipeline",
+        description="Root pipeline output folder",
+        validation_alias="PIPELINE_ROOT_DIR_NAME",
     )
-    prediction_type: str = Field(default="classification", description="Task prediction type")
+    prediction_type: str = Field(
+        default="classification",
+        description="Task prediction type",
+        validation_alias="PREDICTION_TYPE",
+    )
     optimization_objective: str = Field(
-        default="minimize-log-loss", description="Optimization goal"
+        default="minimize-log-loss",
+        description="Optimization goal",
+        validation_alias="OPTIMIZATION_OBJECTIVE",
     )
-    target_column: str = Field(default="deposit", description="Target column name")
+    target_column: str = Field(
+        default="deposit",
+        description="Target column name",
+        validation_alias="TARGET_COLUMN",
+    )
     data_source_csv_filenames: str = Field(
         default=(
             "gs://cloud-samples-data/vertex-ai/tabular-workflows/datasets/bank-marketing/train.csv"

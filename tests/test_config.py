@@ -1,4 +1,6 @@
-"""Unit tests for TabularPipelineConfig schema and properties."""
+"""Unit tests for TabularPipelineConfig schema and environment variable loading."""
+
+import pytest
 
 from tabflows.config import TabularPipelineConfig
 
@@ -20,6 +22,19 @@ def test_tabular_pipeline_config_defaults():
         == "gs://my-test-bucket/automl_tabular_pipeline/transform_config_unique.json"
     )
     assert len(config.features) == 16
+
+
+def test_tabular_pipeline_config_env_vars(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("GCP_PROJECT", "env-project-123")
+    monkeypatch.setenv("GCP_LOCATION", "us-east1")
+    monkeypatch.setenv("GCP_BUCKET_URI", "gs://env-bucket-456")
+
+    config = TabularPipelineConfig()
+
+    assert config.project_id == "env-project-123"
+    assert config.location == "us-east1"
+    assert config.bucket_uri == "gs://env-bucket-456"
+    assert config.root_dir == "gs://env-bucket-456/automl_tabular_pipeline"
 
 
 def test_tabular_pipeline_config_custom_values():

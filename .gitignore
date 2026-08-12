@@ -9,5 +9,8 @@ wheels/
 .pytest_cache/
 .ruff_cache/
 
+# Local environment variables
+.env
+
 # Virtual environments
 .venv
