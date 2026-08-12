@@ -1,0 +1,82 @@
+"""Unit tests for pipeline helper functions and component builders."""
+
+from unittest.mock import MagicMock
+
+import pytest
+
+from tabflows.config import TabularPipelineConfig
+from tabflows.pipeline import (
+    build_automl_tabular_pipeline,
+    build_skip_architecture_search_pipeline,
+    generate_auto_transformation,
+    get_bucket_name_and_path,
+    get_task_detail,
+)
+
+
+def test_generate_auto_transformation():
+    columns = ["age", "job", "balance"]
+    transformations = generate_auto_transformation(columns)
+
+    assert len(transformations) == 3
+    assert transformations[0] == {"auto": {"column_name": "age"}}
+    assert transformations[1] == {"auto": {"column_name": "job"}}
+    assert transformations[2] == {"auto": {"column_name": "balance"}}
+
+
+def test_get_bucket_name_and_path_valid():
+    bucket_name, path = get_bucket_name_and_path("gs://my-bucket/path/to/object.json")
+    assert bucket_name == "my-bucket"
+    assert path == "path/to/object.json"
+
+    bucket_name, path = get_bucket_name_and_path("gs://my-bucket")
+    assert bucket_name == "my-bucket"
+    assert path == ""
+
+
+def test_get_bucket_name_and_path_invalid():
+    with pytest.raises(ValueError, match="Invalid GCS URI"):
+        get_bucket_name_and_path("http://example.com/file.json")
+
+
+def test_get_task_detail():
+    task1 = MagicMock()
+    task1.task_name = "automl-tabular-stage-1-tuner"
+
+    task2 = MagicMock()
+    task2.task_name = "model-upload"
+
+    task_details = [task1, task2]
+
+    found = get_task_detail(task_details, "automl-tabular-stage-1-tuner")
+    assert found == task1
+
+    not_found = get_task_detail(task_details, "non-existent-task")
+    assert not_found is None
+
+
+def test_build_automl_tabular_pipeline():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+    )
+
+    template_path, parameter_values = build_automl_tabular_pipeline(config)
+    assert isinstance(template_path, str)
+    assert isinstance(parameter_values, dict)
+    assert parameter_values["project"] == "test-project"
+    assert parameter_values["target_column"] == "deposit"
+
+
+def test_build_skip_architecture_search_pipeline():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+    )
+    tuning_uri = "gs://test-bucket/automl_tabular_pipeline/tuning_result"
+
+    template_path, parameter_values = build_skip_architecture_search_pipeline(config, tuning_uri)
+    assert isinstance(template_path, str)
+    assert isinstance(parameter_values, dict)
+    assert parameter_values["project"] == "test-project"
+    assert parameter_values["stage_1_tuning_result_artifact_uri"] == tuning_uri

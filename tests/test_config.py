@@ -1,0 +1,43 @@
+"""Unit tests for TabularPipelineConfig schema and properties."""
+
+from tabflows.config import TabularPipelineConfig
+
+
+def test_tabular_pipeline_config_defaults():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://my-test-bucket",
+    )
+
+    assert config.project_id == "test-project"
+    assert config.location == "us-central1"
+    assert config.prediction_type == "classification"
+    assert config.optimization_objective == "minimize-log-loss"
+    assert config.target_column == "deposit"
+    assert config.root_dir == "gs://my-test-bucket/automl_tabular_pipeline"
+    assert (
+        config.transform_config_path
+        == "gs://my-test-bucket/automl_tabular_pipeline/transform_config_unique.json"
+    )
+    assert len(config.features) == 16
+
+
+def test_tabular_pipeline_config_custom_values():
+    config = TabularPipelineConfig(
+        project_id="custom-project",
+        location="europe-west4",
+        bucket_uri="gs://custom-bucket/",
+        root_dir_name="custom_pipeline",
+        target_column="label",
+        prediction_type="regression",
+        optimization_objective="minimize-rmse",
+    )
+
+    assert config.project_id == "custom-project"
+    assert config.location == "europe-west4"
+    assert config.root_dir == "gs://custom-bucket/custom_pipeline"
+    assert (
+        config.transform_config_path
+        == "gs://custom-bucket/custom_pipeline/transform_config_unique.json"
+    )
+    assert config.prediction_type == "regression"
