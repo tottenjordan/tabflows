@@ -150,6 +150,11 @@ class TabularPipelineConfig(BaseSettings):
         description="Output predictions format for batch prediction (jsonl, csv, bigquery)",
         validation_alias="BATCH_PREDICT_PREDICTIONS_FORMAT",
     )
+    experiment_name: str = Field(
+        default="automl-tabular-classification-experiments",
+        description="Vertex AI Experiment name for tracking pipeline runs",
+        validation_alias="EXPERIMENT_NAME",
+    )
 
     @property
     def root_dir(self) -> str:

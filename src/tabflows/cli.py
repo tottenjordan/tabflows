@@ -8,6 +8,11 @@ import click
 from google.cloud import aiplatform, storage
 
 from tabflows.config import TabularPipelineConfig
+from tabflows.experiments import (
+    get_model_evaluation_metrics,
+    get_model_feature_attributions,
+    list_experiment_runs,
+)
 from tabflows.inference import (
     deploy_model_to_endpoint,
     run_batch_prediction,
@@ -219,6 +224,60 @@ def list_models(
             f"  Resource Name: {m.resource_name}\n"
             f"  Created: {m.create_time}\n"
         )
+
+
+@main.command()
+@click.option("--model", required=True, help="Model resource name or ID")
+@click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
+@click.option("--location", default=None, help="GCP Region (defaults to .env)")
+def get_evaluation(
+    model: str,
+    project: str | None,
+    location: str | None,
+) -> None:
+    """Retrieve evaluation metrics and feature attributions for a trained model."""
+    config = _get_config(project, location, None)
+
+    click.echo(f"Fetching evaluation metrics for model '{model}'...")
+    metrics = get_model_evaluation_metrics(model=model, config=config)
+    attributions = get_model_feature_attributions(model=model, config=config)
+
+    if not metrics:
+        click.echo("No evaluation metrics found for specified model.")
+        return
+
+    click.echo("\n--- Evaluation Metrics ---")
+    click.echo(json.dumps(metrics, indent=2))
+
+    if attributions:
+        click.echo("\n--- Feature Attributions ---")
+        click.echo(json.dumps(attributions, indent=2))
+
+
+@main.command()
+@click.option(
+    "--experiment", default=None, help="Experiment name (defaults to .env/EXPERIMENT_NAME)"
+)
+@click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
+@click.option("--location", default=None, help="GCP Region (defaults to .env)")
+def list_experiments(
+    experiment: str | None,
+    project: str | None,
+    location: str | None,
+) -> None:
+    """List pipeline runs and metrics logged to a Vertex AI Experiment."""
+    config = _get_config(project, location, None)
+    exp_name = experiment or config.experiment_name
+
+    click.echo(f"Fetching experiment runs for '{exp_name}' in project '{config.project_id}'...")
+    df = list_experiment_runs(experiment_name=exp_name, config=config)
+
+    if df is None or df.empty:
+        click.echo(f"No runs found for experiment '{exp_name}'.")
+        return
+
+    click.echo(f"\nFound {len(df)} experiment run(s):")
+    click.echo(df.to_string())
 
 
 @main.command()

@@ -126,6 +126,12 @@ uv run tabflows predict-online \
 uv run tabflows run-batch-predict \
     --model "projects/.../models/MODEL_ID" \
     --gcs-source "gs://your-bucket-name/test_instances.csv"
+
+# Fetch Model Evaluation metrics and feature importance
+uv run tabflows get-evaluation --model "projects/.../models/MODEL_ID"
+
+# List Vertex AI Experiment runs and side-by-side metrics
+uv run tabflows list-experiments
 ```
 
 ### 3. Python SDK
@@ -136,6 +142,8 @@ from tabflows import (
     TabularPipelineConfig,
     cleanup_endpoint,
     deploy_model_to_endpoint,
+    get_model_evaluation_metrics,
+    list_experiment_runs,
     predict_online,
     run_batch_prediction,
 )
@@ -144,27 +152,36 @@ from tabflows import (
 load_dotenv()
 config = TabularPipelineConfig()
 
-# 2. Online Inference (Deploy real-time Endpoint)
+# 2. Inspect Model Evaluation Metrics (Log Loss, AUC-ROC, etc.)
 model_resource_name = "projects/YOUR_PROJECT/locations/us-central1/models/YOUR_MODEL_ID"
+metrics = get_model_evaluation_metrics(model=model_resource_name, config=config)
+print("Log Loss:", metrics.get("logLoss"))
+print("ROC AUC:", metrics.get("auRoc"))
+
+# 3. Online Inference (Deploy real-time Endpoint)
 endpoint = deploy_model_to_endpoint(model=model_resource_name, config=config)
 
-# 3. Real-time Prediction
+# 4. Real-time Prediction
 predictions = predict_online(
     endpoint=endpoint,
     instances=[{"age": "35", "job": "technician", "marital": "married"}],
 )
 print("Online Predictions:", predictions)
 
-# 4. Undeploy & Clean Up Endpoint
+# 5. Undeploy & Clean Up Endpoint
 cleanup_endpoint(endpoint=endpoint)
 
-# 5. Batch Inference
+# 6. Batch Inference
 batch_job = run_batch_prediction(
     model=model_resource_name,
     config=config,
     gcs_source=f"{config.bucket_uri}/test_instances.csv",
 )
 print("Batch Prediction Job Submitted:", batch_job.resource_name)
+
+# 7. Experiment Tracking (Compare Runs DataFrame)
+df = list_experiment_runs(config=config)
+print(df)
 ```
 
 ### 4. Jupyter Notebook Tutorials
@@ -180,6 +197,9 @@ uv run jupyter notebook notebooks/01_automl_tabular_classification.ipynb
 
 # Launch Online & Batch Inference Notebook
 uv run jupyter notebook notebooks/02_automl_tabular_inference.ipynb
+
+# Launch Model Evaluation & Experiment Tracking Notebook
+uv run jupyter notebook notebooks/03_automl_tabular_evaluation_and_experiments.ipynb
 ```
 
 ---
