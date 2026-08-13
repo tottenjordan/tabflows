@@ -405,12 +405,13 @@ def generate_fte_config(
     """Generate Feature Transform Engine (FTE) transformations configuration JSON."""
     try:
         column_types = json.loads(columns_json)
-        if not isinstance(column_types, dict):
-            click.echo("Error: --columns-json must be a JSON object mapping column names to types.")
-            raise click.Abort()
-    except Exception as e:
+    except json.JSONDecodeError as e:
         click.echo(f"Error parsing --columns-json JSON: {e}")
         raise click.Abort() from e
+
+    if not isinstance(column_types, dict):
+        click.echo("Error: --columns-json must be a JSON object mapping column names to types.")
+        raise click.Abort()
 
     try:
         transformations = generate_fte_transformations(column_types)
