@@ -16,6 +16,7 @@ def test_tabular_pipeline_config_defaults():
     assert config.prediction_type == "classification"
     assert config.optimization_objective == "minimize-log-loss"
     assert config.target_column == "deposit"
+    assert config.fte_transformations_path is None
     assert config.root_dir == "gs://my-test-bucket/automl_tabular_pipeline"
     assert (
         config.transform_config_path
@@ -28,12 +29,14 @@ def test_tabular_pipeline_config_env_vars(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("GCP_PROJECT", "env-project-123")
     monkeypatch.setenv("GCP_LOCATION", "us-east1")
     monkeypatch.setenv("GCP_BUCKET_URI", "gs://env-bucket-456")
+    monkeypatch.setenv("FTE_TRANSFORMATIONS_PATH", "gs://env-bucket-456/fte_spec.json")
 
     config = TabularPipelineConfig()
 
     assert config.project_id == "env-project-123"
     assert config.location == "us-east1"
     assert config.bucket_uri == "gs://env-bucket-456"
+    assert config.fte_transformations_path == "gs://env-bucket-456/fte_spec.json"
     assert config.root_dir == "gs://env-bucket-456/automl_tabular_pipeline"
 
 

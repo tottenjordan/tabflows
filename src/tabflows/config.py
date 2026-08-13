@@ -155,6 +155,11 @@ class TabularPipelineConfig(BaseSettings):
         description="Vertex AI Experiment name for tracking pipeline runs",
         validation_alias="EXPERIMENT_NAME",
     )
+    fte_transformations_path: str | None = Field(
+        default=None,
+        description="GCS URI or path for custom Feature Transform Engine JSON spec",
+        validation_alias="FTE_TRANSFORMATIONS_PATH",
+    )
 
     @property
     def root_dir(self) -> str:

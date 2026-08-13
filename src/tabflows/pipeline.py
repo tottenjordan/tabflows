@@ -49,6 +49,46 @@ def write_auto_transformations(
     write_to_gcs(storage_client, uri, json.dumps(transformations))
 
 
+FTE_TYPE_MAP = {
+    "categorical": "categorical",
+    "numeric": "numeric",
+    "timestamp": "timestamp",
+    "text": "text_embedding",
+    "auto": "auto",
+}
+
+
+def generate_fte_transformations(column_types: dict[str, str]) -> list[dict[str, Any]]:
+    """Generate Feature Transform Engine (FTE) transformations configuration list.
+
+    Args:
+        column_types: Mapping of column names to transform type strings
+                     ("categorical", "numeric", "timestamp", "text", "auto").
+
+    Returns:
+        List of FTE transformation dictionaries.
+    """
+    transformations: list[dict[str, Any]] = []
+    for col_name, col_type in column_types.items():
+        if col_type not in FTE_TYPE_MAP:
+            raise ValueError(
+                f"Unsupported FTE column type: '{col_type}'. "
+                f"Supported types are: {list(FTE_TYPE_MAP.keys())}"
+            )
+        transform_key = FTE_TYPE_MAP[col_type]
+        transformations.append({transform_key: {"column_name": col_name}})
+    return transformations
+
+
+def write_fte_transformations(
+    storage_client: storage.Client, uri: str, column_types: dict[str, str]
+) -> None:
+    """Generate and write FTE transformation configuration JSON to Cloud Storage."""
+    transformations = generate_fte_transformations(column_types)
+    write_to_gcs(storage_client, uri, json.dumps(transformations))
+
+
+
 SAMPLE_TEST_CSV = (
     "age,job,marital,education,default,balance,housing,loan,contact,day,month,duration,campaign,pdays,previous,poutcome\n"
     "35,technician,married,tertiary,no,1350,yes,no,cellular,15,may,220,1,-1,0,unknown\n"

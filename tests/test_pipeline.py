@@ -9,9 +9,11 @@ from tabflows.pipeline import (
     build_automl_tabular_pipeline,
     build_skip_architecture_search_pipeline,
     generate_auto_transformation,
+    generate_fte_transformations,
     get_bucket_name_and_path,
     get_task_detail,
     setup_gcp_resources,
+    write_fte_transformations,
 )
 
 
@@ -23,6 +25,47 @@ def test_generate_auto_transformation():
     assert transformations[0] == {"auto": {"column_name": "age"}}
     assert transformations[1] == {"auto": {"column_name": "job"}}
     assert transformations[2] == {"auto": {"column_name": "balance"}}
+
+
+def test_generate_fte_transformations_mixed_types():
+    column_types = {
+        "age": "numeric",
+        "job": "categorical",
+        "signup_date": "timestamp",
+        "description": "text",
+        "unknown_col": "auto",
+    }
+    transformations = generate_fte_transformations(column_types)
+
+    assert len(transformations) == 5
+    assert transformations[0] == {"numeric": {"column_name": "age"}}
+    assert transformations[1] == {"categorical": {"column_name": "job"}}
+    assert transformations[2] == {"timestamp": {"column_name": "signup_date"}}
+    assert transformations[3] == {"text_embedding": {"column_name": "description"}}
+    assert transformations[4] == {"auto": {"column_name": "unknown_col"}}
+
+
+def test_generate_fte_transformations_invalid_type():
+    with pytest.raises(ValueError, match="Unsupported FTE column type"):
+        generate_fte_transformations({"col1": "invalid_type"})
+
+
+def test_write_fte_transformations():
+    mock_storage_client = MagicMock()
+    mock_bucket = MagicMock()
+    mock_blob = MagicMock()
+    mock_storage_client.bucket.return_value = mock_bucket
+    mock_bucket.blob.return_value = mock_blob
+
+    column_types = {"age": "numeric", "job": "categorical"}
+    write_fte_transformations(mock_storage_client, "gs://test-bucket/fte_spec.json", column_types)
+
+    mock_storage_client.bucket.assert_called_once_with("test-bucket")
+    mock_bucket.blob.assert_called_once_with("fte_spec.json")
+    mock_blob.upload_from_string.assert_called_once()
+    uploaded_content = mock_blob.upload_from_string.call_args[0][0]
+    assert '"numeric"' in uploaded_content
+    assert '"categorical"' in uploaded_content
 
 
 def test_get_bucket_name_and_path_valid():
