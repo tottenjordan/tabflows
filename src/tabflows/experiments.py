@@ -94,7 +94,10 @@ def log_experiment_run(
     )
 
     clean_run_name = run_name.lower().replace("_", "-").strip("-")
-    run = aiplatform.start_run(run=clean_run_name, resume=True)
+    try:
+        run = aiplatform.start_run(run=clean_run_name, resume=True)
+    except Exception:
+        run = aiplatform.start_run(run=clean_run_name)
 
     if params:
         aiplatform.log_params(params)
@@ -114,7 +117,10 @@ def log_experiment_run(
         if isinstance(pipeline_job, str):
             job_resource_name = pipeline_job
         else:
-            job_resource_name = getattr(pipeline_job, "resource_name", str(pipeline_job))
+            try:
+                job_resource_name = pipeline_job.resource_name
+            except Exception:
+                job_resource_name = getattr(pipeline_job, "job_id", str(pipeline_job))
 
         aiplatform.log_params({"pipeline_job_resource_name": job_resource_name})
 
