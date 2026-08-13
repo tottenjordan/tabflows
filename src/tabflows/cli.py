@@ -2,6 +2,7 @@
 
 import datetime
 import json
+import pathlib
 from typing import Any
 
 import click
@@ -26,7 +27,9 @@ from tabflows.inference import (
 from tabflows.pipeline import (
     build_automl_tabular_pipeline,
     build_skip_architecture_search_pipeline,
+    generate_fte_transformations,
     setup_gcp_resources,
+    write_to_gcs,
 )
 
 
@@ -80,6 +83,9 @@ def setup(project: str | None, location: str | None, bucket: str | None) -> None
     is_flag=True,
     help="Submit job asynchronously to Vertex AI without blocking",
 )
+@click.option(
+    "--distill / --no-distill", default=False, help="Enable or disable model distillation"
+)
 def run_automl(
     project: str | None,
     location: str | None,
@@ -87,9 +93,11 @@ def run_automl(
     job_id: str | None,
     compile_only: bool,
     async_mode: bool,
+    distill: bool,
 ) -> None:
     """Build and submit standard AutoML Tabular pipeline."""
     config = _get_config(project, location, bucket)
+    config.run_distillation = distill
 
     if not config.project_id or not config.bucket_uri:
         click.echo("Error: Both project_id and bucket_uri must be provided or set in .env")
@@ -375,6 +383,54 @@ def run_batch_predict(
         gcs_destination_prefix=gcs_dest,
     )
     click.echo(f"Batch prediction job created successfully: {batch_job.resource_name}")
+
+
+@main.command()
+@click.option(
+    "--output-path",
+    required=True,
+    help="Path or GCS URI (gs://...) to write FTE config JSON",
+)
+@click.option(
+    "--columns-json",
+    required=True,
+    help="JSON string mapping column names to transformation types",
+)
+@click.option("--bucket", default=None, help="GCS Bucket URI (defaults to .env)")
+def generate_fte_config(
+    output_path: str,
+    columns_json: str,
+    bucket: str | None,
+) -> None:
+    """Generate Feature Transform Engine (FTE) transformations configuration JSON."""
+    try:
+        column_types = json.loads(columns_json)
+        if not isinstance(column_types, dict):
+            click.echo("Error: --columns-json must be a JSON object mapping column names to types.")
+            raise click.Abort()
+    except Exception as e:
+        click.echo(f"Error parsing --columns-json JSON: {e}")
+        raise click.Abort() from e
+
+    try:
+        transformations = generate_fte_transformations(column_types)
+    except ValueError as e:
+        click.echo(f"Error generating FTE transformations: {e}")
+        raise click.Abort() from e
+
+    content = json.dumps(transformations, indent=2)
+
+    if output_path.startswith("gs://"):
+        config = _get_config(None, None, bucket)
+        storage_client = storage.Client(project=config.project_id or None)
+        write_to_gcs(storage_client, output_path, content)
+        click.echo(f"FTE configuration uploaded to GCS: {output_path}")
+    else:
+        path = pathlib.Path(output_path)
+        if path.parent and str(path.parent) != ".":
+            path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        click.echo(f"FTE configuration written to: {output_path}")
 
 
 if __name__ == "__main__":
