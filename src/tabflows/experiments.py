@@ -58,7 +58,7 @@ def list_experiment_runs(
     experiment_name: str | None = None,
     config: TabularPipelineConfig | None = None,
 ) -> Any:
-    """Retrieve pandas DataFrame of pipeline runs logged to a Vertex AI Experiment."""
+    """Retrieve pandas DataFrame or list of pipeline runs logged to a Vertex AI Experiment."""
     if config is None:
         config = TabularPipelineConfig()
 
@@ -66,7 +66,13 @@ def list_experiment_runs(
         experiment_name = config.experiment_name
 
     aiplatform.init(project=config.project_id, location=config.location)
-    return aiplatform.get_experiment_df(experiment=experiment_name)
+    try:
+        return aiplatform.get_experiment_df(experiment=experiment_name)
+    except Exception:
+        runs = aiplatform.ExperimentRun.list(experiment=experiment_name)
+        return [
+            {"run_name": r.name, "state": r.state, "resource_name": r.resource_name} for r in runs
+        ]
 
 
 def log_experiment_run(
@@ -87,7 +93,8 @@ def log_experiment_run(
         experiment=config.experiment_name,
     )
 
-    run = aiplatform.start_run(run_name=run_name)
+    clean_run_name = run_name.lower().replace("_", "-").strip("-")
+    run = aiplatform.start_run(run=clean_run_name)
 
     if params:
         aiplatform.log_params(params)

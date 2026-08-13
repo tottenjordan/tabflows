@@ -106,7 +106,7 @@ def test_log_experiment_run_basic() -> None:
         mock_init.assert_called_once_with(
             project="test-proj", location="us-central1", experiment="test-exp"
         )
-        mock_start.assert_called_once_with(run_name="run-1")
+        mock_start.assert_called_once_with(run="run-1")
         mock_log_params.assert_called_once_with({"lr": 0.01})
         mock_log_metrics.assert_called_once_with({"acc": 0.92})
         assert run == mock_run
