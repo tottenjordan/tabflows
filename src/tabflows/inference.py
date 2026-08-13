@@ -6,6 +6,7 @@ from typing import Any
 from google.cloud import aiplatform
 
 from tabflows.config import TabularPipelineConfig
+from tabflows.experiments import log_experiment_run
 from tabflows.pipeline import get_task_detail
 
 
@@ -50,6 +51,7 @@ def deploy_model_to_endpoint(
     config: TabularPipelineConfig | None = None,
     endpoint_display_name: str | None = None,
     sync: bool = True,
+    log_experiment: bool = True,
 ) -> aiplatform.Endpoint:
     """Deploy an AutoML Tabular model to a real-time Vertex AI Endpoint."""
     if config is None:
@@ -72,6 +74,19 @@ def deploy_model_to_endpoint(
         max_replica_count=config.max_replica_count,
         sync=sync,
     )
+
+    if log_experiment:
+        log_experiment_run(
+            run_name=f"deploy-{endpoint_display_name}",
+            params={
+                "endpoint_uri": getattr(endpoint, "resource_name", str(endpoint)),
+                "model_resource_name": getattr(model, "resource_name", str(model)),
+                "serving_machine_type": config.serving_machine_type,
+            },
+            model=model,
+            config=config,
+        )
+
     return endpoint
 
 
@@ -93,6 +108,7 @@ def run_batch_prediction(
     gcs_source: str | list[str] = "",
     gcs_destination_prefix: str | None = None,
     job_display_name: str | None = None,
+    log_experiment: bool = True,
 ) -> aiplatform.BatchPredictionJob:
     """Submit a Batch Prediction job for an AutoML Tabular model against GCS data sources."""
     if config is None:
@@ -122,6 +138,19 @@ def run_batch_prediction(
         machine_type=config.serving_machine_type,
         sync=False,
     )
+
+    if log_experiment:
+        log_experiment_run(
+            run_name=f"batch-{job_display_name}",
+            params={
+                "batch_job_uri": getattr(batch_job, "resource_name", str(batch_job)),
+                "gcs_source": ",".join(gcs_source),
+                "gcs_output": gcs_destination_prefix,
+            },
+            model=model,
+            config=config,
+        )
+
     return batch_job
 
 

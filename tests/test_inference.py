@@ -65,8 +65,8 @@ def test_get_model_from_pipeline_job_missing_task_raises() -> None:
         get_model_from_pipeline_job(mock_job)
 
 
-def test_deploy_model_to_endpoint_mocked() -> None:
-    """Test deploying model to online endpoint with config settings."""
+def test_deploy_model_to_endpoint_with_experiment_logging() -> None:
+    """Test deploying model to online endpoint with experiment logging enabled."""
     config = TabularPipelineConfig(
         project_id="test-project",
         location="us-central1",
@@ -76,11 +76,14 @@ def test_deploy_model_to_endpoint_mocked() -> None:
     )
 
     mock_model = MagicMock()
+    mock_model.resource_name = "projects/123/locations/us-central1/models/m123"
     mock_endpoint = MagicMock()
+    mock_endpoint.resource_name = "projects/123/locations/us-central1/endpoints/ep123"
 
     with (
         patch("tabflows.inference.aiplatform.init") as mock_init,
         patch("tabflows.inference.aiplatform.Endpoint.create") as mock_create_endpoint,
+        patch("tabflows.inference.log_experiment_run") as mock_log_exp,
     ):
         mock_create_endpoint.return_value = mock_endpoint
 
@@ -88,6 +91,7 @@ def test_deploy_model_to_endpoint_mocked() -> None:
             model=mock_model,
             config=config,
             endpoint_display_name="custom-endpoint-name",
+            log_experiment=True,
         )
 
         mock_init.assert_called_once_with(project="test-project", location="us-central1")
@@ -99,6 +103,43 @@ def test_deploy_model_to_endpoint_mocked() -> None:
             max_replica_count=2,
             sync=True,
         )
+        mock_log_exp.assert_called_once_with(
+            run_name="deploy-custom-endpoint-name",
+            params={
+                "endpoint_uri": "projects/123/locations/us-central1/endpoints/ep123",
+                "model_resource_name": "projects/123/locations/us-central1/models/m123",
+                "serving_machine_type": "n1-standard-4",
+            },
+            model=mock_model,
+            config=config,
+        )
+        assert endpoint == mock_endpoint
+
+
+def test_deploy_model_to_endpoint_without_experiment_logging() -> None:
+    """Test deploying model to online endpoint with experiment logging disabled."""
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        location="us-central1",
+        serving_machine_type="n1-standard-4",
+    )
+
+    mock_model = MagicMock()
+    mock_endpoint = MagicMock()
+
+    with (
+        patch("tabflows.inference.aiplatform.init"),
+        patch("tabflows.inference.aiplatform.Endpoint.create", return_value=mock_endpoint),
+        patch("tabflows.inference.log_experiment_run") as mock_log_exp,
+    ):
+        endpoint = deploy_model_to_endpoint(
+            model=mock_model,
+            config=config,
+            endpoint_display_name="custom-endpoint-name",
+            log_experiment=False,
+        )
+
+        mock_log_exp.assert_not_called()
         assert endpoint == mock_endpoint
 
 
@@ -118,8 +159,8 @@ def test_predict_online_mocked() -> None:
     assert results == [{"classes": ["0", "1"], "scores": [0.85, 0.15]}]
 
 
-def test_run_batch_prediction_mocked() -> None:
-    """Test submitting batch prediction job."""
+def test_run_batch_prediction_with_experiment_logging() -> None:
+    """Test submitting batch prediction job with experiment logging enabled."""
     config = TabularPipelineConfig(
         project_id="test-project",
         location="us-central1",
@@ -130,15 +171,20 @@ def test_run_batch_prediction_mocked() -> None:
 
     mock_model = MagicMock()
     mock_batch_job = MagicMock()
+    mock_batch_job.resource_name = "projects/123/locations/us-central1/batchPredictionJobs/bp123"
     mock_model.batch_predict.return_value = mock_batch_job
 
-    with patch("tabflows.inference.aiplatform.init") as mock_init:
+    with (
+        patch("tabflows.inference.aiplatform.init") as mock_init,
+        patch("tabflows.inference.log_experiment_run") as mock_log_exp,
+    ):
         batch_job = run_batch_prediction(
             model=mock_model,
             config=config,
             gcs_source="gs://test-bucket/test_data.csv",
             gcs_destination_prefix="gs://test-bucket/batch_output",
             job_display_name="custom-batch-job",
+            log_experiment=True,
         )
 
         mock_init.assert_called_once_with(project="test-project", location="us-central1")
@@ -151,6 +197,43 @@ def test_run_batch_prediction_mocked() -> None:
             machine_type="n1-standard-4",
             sync=False,
         )
+        mock_log_exp.assert_called_once_with(
+            run_name="batch-custom-batch-job",
+            params={
+                "batch_job_uri": "projects/123/locations/us-central1/batchPredictionJobs/bp123",
+                "gcs_source": "gs://test-bucket/test_data.csv",
+                "gcs_output": "gs://test-bucket/batch_output",
+            },
+            model=mock_model,
+            config=config,
+        )
+        assert batch_job == mock_batch_job
+
+
+def test_run_batch_prediction_without_experiment_logging() -> None:
+    """Test submitting batch prediction job with experiment logging disabled."""
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        location="us-central1",
+        bucket_uri="gs://test-bucket",
+    )
+
+    mock_model = MagicMock()
+    mock_batch_job = MagicMock()
+    mock_model.batch_predict.return_value = mock_batch_job
+
+    with (
+        patch("tabflows.inference.aiplatform.init"),
+        patch("tabflows.inference.log_experiment_run") as mock_log_exp,
+    ):
+        batch_job = run_batch_prediction(
+            model=mock_model,
+            config=config,
+            gcs_source="gs://test-bucket/test_data.csv",
+            log_experiment=False,
+        )
+
+        mock_log_exp.assert_not_called()
         assert batch_job == mock_batch_job
 
 

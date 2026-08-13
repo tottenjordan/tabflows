@@ -1,6 +1,6 @@
 """Unit tests for pipeline helper functions and component builders."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -8,10 +8,12 @@ from tabflows.config import TabularPipelineConfig
 from tabflows.pipeline import (
     build_automl_tabular_pipeline,
     build_skip_architecture_search_pipeline,
+    create_tabular_pipeline_job,
     generate_auto_transformation,
     generate_fte_transformations,
     get_bucket_name_and_path,
     get_task_detail,
+    run_skip_architecture_search_pipeline,
     setup_gcp_resources,
     write_fte_transformations,
 )
@@ -149,24 +151,79 @@ def test_build_skip_architecture_search_pipeline():
     assert parameter_values["stage_1_tuning_result_artifact_uri"] == tuning_uri
 
 
-def test_create_tabular_pipeline_job():
+def test_create_tabular_pipeline_job_with_experiment():
     from google.cloud import aiplatform
 
-    from tabflows.pipeline import create_tabular_pipeline_job
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        experiment_name="test-exp",
+    )
+
+    with (
+        patch("tabflows.pipeline.aiplatform.init") as mock_init,
+        patch("tabflows.pipeline.log_experiment_run") as mock_log_exp,
+    ):
+        job = create_tabular_pipeline_job(config, job_id="test-job-id", log_experiment=True)
+        assert isinstance(job, aiplatform.PipelineJob)
+        mock_init.assert_called_once_with(
+            project="test-project", location="us-central1", experiment="test-exp"
+        )
+        mock_log_exp.assert_called_once_with(
+            run_name="test-job-id",
+            pipeline_job=job,
+            config=config,
+        )
+
+
+def test_create_tabular_pipeline_job_without_experiment():
+    from google.cloud import aiplatform
 
     config = TabularPipelineConfig(
         project_id="test-project",
         bucket_uri="gs://test-bucket",
     )
 
-    job = create_tabular_pipeline_job(config, job_id="test-job-id")
-    assert isinstance(job, aiplatform.PipelineJob)
+    with (
+        patch("tabflows.pipeline.aiplatform.init") as mock_init,
+        patch("tabflows.pipeline.log_experiment_run") as mock_log_exp,
+    ):
+        job = create_tabular_pipeline_job(config, job_id="test-job-id", log_experiment=False)
+        assert isinstance(job, aiplatform.PipelineJob)
+        mock_init.assert_not_called()
+        mock_log_exp.assert_not_called()
 
 
-def test_run_skip_architecture_search_pipeline():
+def test_run_skip_architecture_search_pipeline_with_experiment():
     from google.cloud import aiplatform
 
-    from tabflows.pipeline import run_skip_architecture_search_pipeline
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        tuning_result_output="gs://test-bucket/tuning_result",
+        experiment_name="test-exp",
+    )
+
+    with (
+        patch("tabflows.pipeline.aiplatform.init") as mock_init,
+        patch("tabflows.pipeline.log_experiment_run") as mock_log_exp,
+    ):
+        job = run_skip_architecture_search_pipeline(
+            config, job_id="test-skip-job", log_experiment=True
+        )
+        assert isinstance(job, aiplatform.PipelineJob)
+        mock_init.assert_called_once_with(
+            project="test-project", location="us-central1", experiment="test-exp"
+        )
+        mock_log_exp.assert_called_once_with(
+            run_name="test-skip-job",
+            pipeline_job=job,
+            config=config,
+        )
+
+
+def test_run_skip_architecture_search_pipeline_without_experiment():
+    from google.cloud import aiplatform
 
     config = TabularPipelineConfig(
         project_id="test-project",
@@ -174,8 +231,16 @@ def test_run_skip_architecture_search_pipeline():
         tuning_result_output="gs://test-bucket/tuning_result",
     )
 
-    job = run_skip_architecture_search_pipeline(config, job_id="test-skip-job")
-    assert isinstance(job, aiplatform.PipelineJob)
+    with (
+        patch("tabflows.pipeline.aiplatform.init") as mock_init,
+        patch("tabflows.pipeline.log_experiment_run") as mock_log_exp,
+    ):
+        job = run_skip_architecture_search_pipeline(
+            config, job_id="test-skip-job", log_experiment=False
+        )
+        assert isinstance(job, aiplatform.PipelineJob)
+        mock_init.assert_not_called()
+        mock_log_exp.assert_not_called()
 
     # Test error when tuning_result_output missing
     config_no_tuning = TabularPipelineConfig(
@@ -183,4 +248,5 @@ def test_run_skip_architecture_search_pipeline():
         bucket_uri="gs://test-bucket",
     )
     with pytest.raises(ValueError, match="tuning_result_output must be provided"):
-        run_skip_architecture_search_pipeline(config_no_tuning)
+        run_skip_architecture_search_pipeline(config_no_tuning, log_experiment=False)
+

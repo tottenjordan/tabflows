@@ -7,6 +7,7 @@ from google.cloud import aiplatform, storage
 from google_cloud_pipeline_components.v1.automl.tabular import utils as automl_tabular_utils
 
 from tabflows.config import TabularPipelineConfig
+from tabflows.experiments import log_experiment_run
 
 
 def generate_auto_transformation(column_names: list[str]) -> list[dict[str, Any]]:
@@ -241,10 +242,18 @@ def get_evaluation_metrics(storage_client: storage.Client, task_details: list[An
 def create_tabular_pipeline_job(
     config: TabularPipelineConfig,
     job_id: str = "automl-tabular-full-search",
+    log_experiment: bool = True,
 ) -> aiplatform.PipelineJob:
     """Create a Vertex AI PipelineJob for Stage 1 AutoML Tabular (Full Search)."""
+    if log_experiment:
+        aiplatform.init(
+            project=config.project_id,
+            location=config.location,
+            experiment=config.experiment_name,
+        )
+
     template_path, parameter_values = build_automl_tabular_pipeline(config)
-    return aiplatform.PipelineJob(
+    job = aiplatform.PipelineJob(
         display_name=job_id,
         location=config.location,
         template_path=template_path,
@@ -253,12 +262,20 @@ def create_tabular_pipeline_job(
         parameter_values=parameter_values,
         enable_caching=False,
     )
+    if log_experiment:
+        log_experiment_run(
+            run_name=job_id,
+            pipeline_job=job,
+            config=config,
+        )
+    return job
 
 
 def run_skip_architecture_search_pipeline(
     config: TabularPipelineConfig,
     tuning_result_artifact_uri: str | None = None,
     job_id: str = "automl-tabular-skip-search",
+    log_experiment: bool = True,
 ) -> aiplatform.PipelineJob:
     """Create a Vertex AI PipelineJob for Stage 2 AutoML Tabular (Skip Architecture Search)."""
     tuning_uri = tuning_result_artifact_uri or config.tuning_result_output
@@ -267,11 +284,18 @@ def run_skip_architecture_search_pipeline(
             "tuning_result_output must be provided in config "
             "or as argument tuning_result_artifact_uri"
         )
+    if log_experiment:
+        aiplatform.init(
+            project=config.project_id,
+            location=config.location,
+            experiment=config.experiment_name,
+        )
+
     template_path, parameter_values = build_skip_architecture_search_pipeline(
         config=config,
         stage_1_tuning_result_artifact_uri=tuning_uri,
     )
-    return aiplatform.PipelineJob(
+    job = aiplatform.PipelineJob(
         display_name=job_id,
         location=config.location,
         template_path=template_path,
@@ -280,3 +304,11 @@ def run_skip_architecture_search_pipeline(
         parameter_values=parameter_values,
         enable_caching=False,
     )
+    if log_experiment:
+        log_experiment_run(
+            run_name=job_id,
+            pipeline_job=job,
+            config=config,
+        )
+    return job
+
