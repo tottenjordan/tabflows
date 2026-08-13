@@ -10,10 +10,10 @@
 - **Skip Architecture Search**: Accelerates model tuning by reusing Stage 1 hyperparameter tuning results (`stage_1_tuning_result_artifact_uri`) to reduce execution time by ~79.6% and training node-hour costs by ~80.4%.
 - **Feature Transform Engine (FTE)**: Supports automated and explicit column-level transformations across `categorical`, `numeric`, `timestamp`, `text_embedding` (`text`), and `auto` data types.
 - **Model Distillation**: Supports producing lighter-weight, lower-latency distilled models alongside standard ensemble models.
-- **Vertex AI Experiments**: Integrated logging and side-by-side comparison of pipeline run hyperparameter configurations and evaluation metrics.
+- **Vertex AI Experiments**: Full-lifecycle experiment tracking of parameters, evaluation metrics, pipeline jobs (`create_tabular_pipeline_job`, `run_skip_architecture_search_pipeline`), DoE campaigns (`run_doe_campaign`), model evaluation metrics (`get_model_evaluation_metrics`), endpoint deployments (`deploy_model_to_endpoint`), and batch prediction jobs (`run_batch_prediction`).
 - **Online & Batch Inference**: Built-in support for deploying models to real-time Vertex AI Endpoints (`n1-standard-4`), executing online predictions, and launching non-blocking Batch Prediction jobs against GCS datasets.
 - **Automatic `.env` Configuration**: Seamless environment configuration powered by `pydantic-settings` (`BaseSettings`), automatically reading `GCP_PROJECT`, `GCP_LOCATION`, `GCP_BUCKET_URI`, and pipeline parameters from `.env`.
-- **CLI & Python SDK Interfaces**: Command-line interface and modular Python SDK for provisioning GCS assets, compiling templates, submitting jobs asynchronously (`job.submit()`), and running inference.
+- **CLI & Python SDK Interfaces**: Command-line interface and modular Python SDK for provisioning GCS assets, compiling templates, submitting jobs asynchronously (`job.submit()`), logging experiments (`log-experiment`), and running inference.
 - **Modern Python Tooling**: Built with `uv` for dependency management, `ruff` for linting/formatting, `ty` for static type checking, and `pytest` for automated unit testing.
 
 ---
@@ -115,7 +115,7 @@ uv run python scripts/setup_gcp_resources.py
 
 ### 2. Command Line Interface (CLI)
 
-Use the `tabflows` CLI to compile templates, submit pipeline jobs, generate FTE configurations, or execute model inference. If `--job-id` is omitted, a unique timestamped ID (`automl-tabular-YYYYMMDDHHMMSS`) is generated automatically.
+Use the `tabflows` CLI to compile templates, submit pipeline jobs, generate FTE configurations, log experiments, or execute model inference. If `--job-id` is omitted, a unique timestamped ID (`automl-tabular-YYYYMMDDHHMMSS`) is generated automatically.
 
 ```bash
 # Compile standard AutoML Tabular pipeline template locally
@@ -147,6 +147,14 @@ uv run tabflows run-batch-predict \
 # Fetch Model Evaluation metrics and feature importance
 uv run tabflows get-evaluation --model "projects/.../models/MODEL_ID"
 
+# Log custom experiment run with parameters, metrics, model evaluations, and pipeline job reference
+uv run tabflows log-experiment \
+    --run-name "my-experiment-run" \
+    --model-resource-name "projects/.../models/MODEL_ID" \
+    --pipeline-job-id "projects/.../pipelineJobs/JOB_ID" \
+    --params-json '{"train_budget_milli_node_hours": 1000, "run_distillation": true}' \
+    --metrics-json '{"custom_eval_score": 0.942}'
+
 # List Vertex AI Experiment runs and side-by-side metrics
 uv run tabflows list-experiments
 ```
@@ -157,14 +165,16 @@ uv run tabflows list-experiments
 from dotenv import load_dotenv
 from tabflows import (
     TabularPipelineConfig,
-    build_automl_tabular_pipeline,
-    cleanup_endpoint,
+    create_tabular_pipeline_job,
     deploy_model_to_endpoint,
     generate_fte_transformations,
     get_model_evaluation_metrics,
+    get_model_feature_attributions,
     list_experiment_runs,
+    log_experiment_run,
     predict_online,
     run_batch_prediction,
+    run_doe_campaign,
     run_skip_architecture_search_pipeline,
 )
 
@@ -182,39 +192,68 @@ fte_transformations = generate_fte_transformations(
     }
 )
 
-# 3. Build Stage 1 Pipeline (Full Search)
-template_path, params = build_automl_tabular_pipeline(config)
+# 3. Create & Submit Stage 1 Pipeline (Full Search with automatic experiment tracking)
+stage1_job = create_tabular_pipeline_job(
+    config=config,
+    job_id="stage1-full-search-run",
+    log_experiment=True,
+)
 
-# 4. Build Stage 2 Pipeline (Skip Architecture Search reusing tuning output)
+# 4. Create & Submit Stage 2 Pipeline (Skip Architecture Search with experiment tracking)
 stage2_job = run_skip_architecture_search_pipeline(
     config=config,
     tuning_result_artifact_uri="gs://your-bucket/stage1_job/automl-tabular-stage-1-tuner/tuning_result_output",
     job_id="stage2-skip-search-run",
+    log_experiment=True,
 )
 
-# 5. Inspect Model Evaluation Metrics (Log Loss, AUC-ROC, etc.)
+# 5. Execute Design of Experiments (DoE) Campaign
+campaign_results = run_doe_campaign(
+    campaign_name="hyperparameter-grid",
+    variants=[
+        {"name": "v1", "train_budget_milli_node_hours": 1000},
+        {"name": "v2", "train_budget_milli_node_hours": 2000},
+    ],
+    config=config,
+)
+
+# 6. Inspect Model Evaluation Metrics & Feature Importance
 model_resource_name = "projects/YOUR_PROJECT/locations/us-central1/models/YOUR_MODEL_ID"
 metrics = get_model_evaluation_metrics(model=model_resource_name, config=config)
+attributions = get_model_feature_attributions(model=model_resource_name, config=config)
 print("Log Loss:", metrics.get("logLoss"))
 print("ROC AUC:", metrics.get("auRoc"))
 
-# 6. Online Inference (Deploy real-time Endpoint & Predict)
-endpoint = deploy_model_to_endpoint(model=model_resource_name, config=config)
+# 7. Online Inference (Deploy real-time Endpoint & Predict with experiment tracking)
+endpoint = deploy_model_to_endpoint(
+    model=model_resource_name,
+    config=config,
+    log_experiment=True,
+)
 predictions = predict_online(
     endpoint=endpoint,
     instances=[{"age": "35", "job": "technician", "marital": "married"}],
 )
 print("Online Predictions:", predictions)
-cleanup_endpoint(endpoint=endpoint)
 
-# 7. Batch Inference
+# 8. Batch Inference (with automatic experiment logging)
 batch_job = run_batch_prediction(
     model=model_resource_name,
     config=config,
     gcs_source=f"{config.bucket_uri}/test_instances.csv",
+    log_experiment=True,
 )
 
-# 8. Experiment Tracking (Compare Runs DataFrame)
+# 9. Custom Experiment Run Logging
+log_experiment_run(
+    run_name="custom-evaluation-run",
+    params={"custom_param": "value"},
+    metrics={"custom_metric": 0.98},
+    model=model_resource_name,
+    config=config,
+)
+
+# 10. Experiment Tracking (Compare Runs DataFrame)
 df = list_experiment_runs(config=config)
 print(df)
 ```
@@ -242,6 +281,13 @@ uv run jupyter notebook notebooks/04_skip_architecture_search_benchmarks.ipynb
 # 05. Feature Transform Engine (FTE) Notebook
 uv run jupyter notebook notebooks/05_feature_transform_engine.ipynb
 ```
+
+#### Notebook Summaries
+- **Notebook 01 (`01_automl_tabular_classification.ipynb`)**: End-to-end AutoML Tabular classification pipeline setup, parameter configuration, template compilation, and pipeline job submission (`create_tabular_pipeline_job`) with automatic Vertex AI Experiment tracking.
+- **Notebook 02 (`02_automl_tabular_inference.ipynb`)**: Model deployment to real-time Vertex AI Endpoints (`deploy_model_to_endpoint`), online JSON prediction execution (`predict_online`), non-blocking batch prediction jobs (`run_batch_prediction`), and endpoint cleanup, complete with deployment experiment logging.
+- **Notebook 03 (`03_automl_tabular_evaluation_and_experiments.ipynb`)**: Comprehensive model evaluation metrics (Log Loss, PR/ROC AUC, confusion matrices), global feature attributions (`get_model_feature_attributions`), DoE campaign execution (`run_doe_campaign`), custom experiment run logging (`log_experiment_run`), and side-by-side run comparisons (`list_experiment_runs`).
+- **Notebook 04 (`04_skip_architecture_search_benchmarks.ipynb`)**: Skip Architecture Search Stage 2 execution (`run_skip_architecture_search_pipeline`) reusing Stage 1 tuning result artifacts (`tuning_result_output`), performance benchmarks (-79.6% execution time, -80.4% node-hour savings), and experiment run comparisons.
+- **Notebook 05 (`05_feature_transform_engine.ipynb`)**: Feature Transform Engine (FTE) configuration (`generate_fte_transformations`), column data type mappings (`categorical`, `numeric`, `timestamp`, `text_embedding`, `auto`), GCS transform asset management, and pipeline integration.
 
 ---
 
