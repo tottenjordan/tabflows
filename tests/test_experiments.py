@@ -195,4 +195,3 @@ def test_run_doe_campaign() -> None:
         assert summary[1]["variant_name"] == "distilled"
         assert summary[1]["run_name"] == "exp-camp-distilled"
         assert summary[1]["run"] == mock_run2
-

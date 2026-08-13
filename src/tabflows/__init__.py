@@ -54,4 +54,3 @@ __all__ = [
     "setup_gcp_resources",
     "write_fte_transformations",
 ]
-
