@@ -23,3 +23,7 @@ Key functions available in `google_cloud_pipeline_components.v1.automl.tabular.u
 - Transformation configurations are JSON files specifying column-level auto transformation specs:
   `[{"auto": {"column_name": "col_1"}}, ...]`
 - Transformation configs are stored on GCS and passed to pipeline creation via `transform_config_path`.
+- **BigQuery Direct Ingestion**: Pipelines accept BigQuery table paths formatted as `bq://project.dataset.table` via `bigquery_table_path` to avoid intermediate CSV export steps.
+- **Data Splitting Strategies**: Supports `predefined_split_key` (for custom/chronological split assignments using `TRAIN`, `VALIDATE`, `TEST` values), `timestamp_split_key`, and `stratified_split_key`.
+- **Specialized Optimization Objectives**: Supports `maximize-precision-at-recall` and `maximize-recall-at-precision` objectives using `optimization_objective_recall_value` and `optimization_objective_precision_value` constraints.
+

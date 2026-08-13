@@ -7,9 +7,10 @@ This note captures model serving patterns, online prediction payload specs, and 
 ## 1. Online Inference (Endpoints)
 
 - **SDK Functions**:
-  - `deploy_model_to_endpoint(model, config)`: Deploys model to a real-time `aiplatform.Endpoint`.
+  - `deploy_model_to_endpoint(model, config, traffic_split=...)`: Deploys model to a real-time `aiplatform.Endpoint`, supporting multi-model traffic splits (e.g. `traffic_split={"0": 90, "1": 10}`).
   - `predict_online(endpoint, instances)`: Sends synchronous JSON feature requests.
   - `cleanup_endpoint(endpoint)`: Undeploys all deployed models and deletes the endpoint resource to avoid unnecessary serving charges.
+- **Traffic Splitting / Canary Deployments**: Supports Champion vs. Challenger deployments by splitting endpoint traffic between multiple deployed model revisions.
 - **CLI Commands**:
   - `uv run tabflows deploy-endpoint --model <MODEL_ID_OR_URI>`
   - `uv run tabflows predict-online --endpoint <ENDPOINT_ID> --json-instance '{"age": "30", "job": "blue-collar"}'`

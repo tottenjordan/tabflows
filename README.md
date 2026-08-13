@@ -7,11 +7,14 @@
 ## Features
 
 - **Vertex AI Tabular Workflows**: Built on Google-managed AutoML Tabular pipeline components (`google-cloud-pipeline-components>=2.22.0`, `google_cloud_pipeline_components.v1.automl.tabular`).
+- **Direct BigQuery Ingestion**: Direct ingestion from BigQuery tables (`bigquery_table_path`, `bq://project.dataset.table`) without intermediate Cloud Storage staging.
+- **Predefined & Chronological Data Splitting**: Flexible dataset partitioning using `predefined_split_key` (supporting explicit `TRAIN`, `VALIDATE`, `TEST` partitions to prevent data leakage in time-series evaluation), timestamp splits, and stratified splits.
+- **Specialized Optimization Objectives**: Tailored binary classification objectives including `maximize-precision-at-recall` and `maximize-recall-at-precision` with target threshold constraints (`optimization_objective_recall_value`, `optimization_objective_precision_value`).
 - **Skip Architecture Search**: Accelerates model tuning by reusing Stage 1 hyperparameter tuning results (`stage_1_tuning_result_artifact_uri`) to reduce execution time by ~79.6% and training node-hour costs by ~80.4%.
 - **Feature Transform Engine (FTE)**: Supports automated and explicit column-level transformations across `categorical`, `numeric`, `timestamp`, `text_embedding` (`text`), and `auto` data types.
 - **Model Distillation**: Supports producing lighter-weight, lower-latency distilled models alongside standard ensemble models.
 - **Vertex AI Experiments**: Full-lifecycle experiment tracking of parameters, evaluation metrics, pipeline jobs (`create_tabular_pipeline_job`, `run_skip_architecture_search_pipeline`), DoE campaigns (`run_doe_campaign`), model evaluation metrics (`get_model_evaluation_metrics`), endpoint deployments (`deploy_model_to_endpoint`), and batch prediction jobs (`run_batch_prediction`).
-- **Online & Batch Inference**: Built-in support for deploying models to real-time Vertex AI Endpoints (`n1-standard-4`), executing online predictions, and launching non-blocking Batch Prediction jobs against GCS datasets.
+- **Online & Batch Inference**: Built-in support for deploying models to real-time Vertex AI Endpoints (`n1-standard-4`) with Champion vs. Challenger traffic splitting (`traffic_split={"0": 90, "1": 10}`), executing online predictions, and launching non-blocking Batch Prediction jobs against GCS datasets.
 - **Automatic `.env` Configuration**: Seamless environment configuration powered by `pydantic-settings` (`BaseSettings`), automatically reading `GCP_PROJECT`, `GCP_LOCATION`, `GCP_BUCKET_URI`, and pipeline parameters from `.env`.
 - **CLI & Python SDK Interfaces**: Command-line interface and modular Python SDK for provisioning GCS assets, compiling templates, submitting jobs asynchronously (`job.submit()`), logging experiments (`log-experiment`), and running inference.
 ---
@@ -77,7 +80,10 @@ tabflows/
 │   ├── 02_automl_tabular_inference.ipynb
 │   ├── 03_automl_tabular_evaluation_and_experiments.ipynb
 │   ├── 04_skip_architecture_search_benchmarks.ipynb
-│   └── 05_feature_transform_engine.ipynb
+│   ├── 05_feature_transform_engine.ipynb
+│   ├── 06_bigquery_and_split_strategies.ipynb
+│   ├── 07_champion_challenger_traffic_split.ipynb
+│   └── 08_optimization_objectives_and_targets.ipynb
 ├── tests/                     # Unit tests
 │   ├── test_cli.py            # CLI integration tests
 │   ├── test_config.py         # Config schema & .env tests
@@ -321,6 +327,15 @@ uv run jupyter notebook notebooks/04_skip_architecture_search_benchmarks.ipynb
 
 # 05. Feature Transform Engine (FTE) Notebook
 uv run jupyter notebook notebooks/05_feature_transform_engine.ipynb
+
+# 06. BigQuery Direct Ingestion & Split Strategies Notebook
+uv run jupyter notebook notebooks/06_bigquery_and_split_strategies.ipynb
+
+# 07. Champion vs. Challenger Endpoint Traffic Splitting Notebook
+uv run jupyter notebook notebooks/07_champion_challenger_traffic_split.ipynb
+
+# 08. Specialized Optimization Objectives & Target Tuning Notebook
+uv run jupyter notebook notebooks/08_optimization_objectives_and_targets.ipynb
 ```
 
 #### Notebook Summaries
@@ -329,6 +344,9 @@ uv run jupyter notebook notebooks/05_feature_transform_engine.ipynb
 - **Notebook 03 (`03_automl_tabular_evaluation_and_experiments.ipynb`)**: Comprehensive model evaluation metrics (Log Loss, PR/ROC AUC, confusion matrices), global feature attributions (`get_model_feature_attributions`), DoE campaign execution (`run_doe_campaign`), custom experiment run logging (`log_experiment_run`), and side-by-side run comparisons (`list_experiment_runs`).
 - **Notebook 04 (`04_skip_architecture_search_benchmarks.ipynb`)**: Skip Architecture Search Stage 2 execution (`run_skip_architecture_search_pipeline`) reusing Stage 1 tuning result artifacts (`tuning_result_output`), performance benchmarks (-79.6% execution time, -80.4% node-hour savings), and experiment run comparisons.
 - **Notebook 05 (`05_feature_transform_engine.ipynb`)**: Feature Transform Engine (FTE) configuration (`generate_fte_transformations`), column data type mappings (`categorical`, `numeric`, `timestamp`, `text_embedding`, `auto`), GCS transform asset management, and pipeline integration.
+- **Notebook 06 (`06_bigquery_and_split_strategies.ipynb`)**: Direct BigQuery table ingestion (`bigquery_table_path`, `bq://project.dataset.table`), predefined data splitting (`predefined_split_key`) for chronological/custom dataset partitioning, and pipeline experiment tracking.
+- **Notebook 07 (`07_champion_challenger_traffic_split.ipynb`)**: Champion vs. Challenger canary model deployments, endpoint multi-model traffic splitting (`traffic_split={"0": 90, "1": 10}`), online predictions, and endpoint resource cleanup.
+- **Notebook 08 (`08_optimization_objectives_and_targets.ipynb`)**: Specialized binary classification optimization objectives (`maximize-precision-at-recall`, `maximize-recall-at-precision`) with precision/recall target constraints (`optimization_objective_recall_value`, `optimization_objective_precision_value`) for fraud detection and marketing conversion use cases.
 
 ---
 
