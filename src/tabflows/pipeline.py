@@ -3,7 +3,7 @@
 import json
 from typing import Any
 
-from google.cloud import storage
+from google.cloud import aiplatform, storage
 from google_cloud_pipeline_components.v1.automl.tabular import utils as automl_tabular_utils
 
 from tabflows.config import TabularPipelineConfig
@@ -86,7 +86,6 @@ def write_fte_transformations(
     """Generate and write FTE transformation configuration JSON to Cloud Storage."""
     transformations = generate_fte_transformations(column_types)
     write_to_gcs(storage_client, uri, json.dumps(transformations))
-
 
 
 SAMPLE_TEST_CSV = (
@@ -237,3 +236,47 @@ def get_evaluation_metrics(storage_client: storage.Client, task_details: list[An
         raise ValueError("Task 'model-evaluation-2' not found in task details.")
     uri = ensemble_task.outputs["evaluation_metrics"].artifacts[0].uri
     return download_from_gcs(storage_client, uri)
+
+
+def create_tabular_pipeline_job(
+    config: TabularPipelineConfig,
+    job_id: str = "automl-tabular-full-search",
+) -> aiplatform.PipelineJob:
+    """Create a Vertex AI PipelineJob for Stage 1 AutoML Tabular (Full Search)."""
+    template_path, parameter_values = build_automl_tabular_pipeline(config)
+    return aiplatform.PipelineJob(
+        display_name=job_id,
+        location=config.location,
+        template_path=template_path,
+        job_id=job_id,
+        pipeline_root=config.root_dir,
+        parameter_values=parameter_values,
+        enable_caching=False,
+    )
+
+
+def run_skip_architecture_search_pipeline(
+    config: TabularPipelineConfig,
+    tuning_result_artifact_uri: str | None = None,
+    job_id: str = "automl-tabular-skip-search",
+) -> aiplatform.PipelineJob:
+    """Create a Vertex AI PipelineJob for Stage 2 AutoML Tabular (Skip Architecture Search)."""
+    tuning_uri = tuning_result_artifact_uri or config.tuning_result_output
+    if not tuning_uri:
+        raise ValueError(
+            "tuning_result_output must be provided in config "
+            "or as argument tuning_result_artifact_uri"
+        )
+    template_path, parameter_values = build_skip_architecture_search_pipeline(
+        config=config,
+        stage_1_tuning_result_artifact_uri=tuning_uri,
+    )
+    return aiplatform.PipelineJob(
+        display_name=job_id,
+        location=config.location,
+        template_path=template_path,
+        job_id=job_id,
+        pipeline_root=config.root_dir,
+        parameter_values=parameter_values,
+        enable_caching=False,
+    )

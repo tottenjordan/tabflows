@@ -147,3 +147,40 @@ def test_build_skip_architecture_search_pipeline():
     assert isinstance(parameter_values, dict)
     assert parameter_values["project"] == "test-project"
     assert parameter_values["stage_1_tuning_result_artifact_uri"] == tuning_uri
+
+
+def test_create_tabular_pipeline_job():
+    from google.cloud import aiplatform
+
+    from tabflows.pipeline import create_tabular_pipeline_job
+
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+    )
+
+    job = create_tabular_pipeline_job(config, job_id="test-job-id")
+    assert isinstance(job, aiplatform.PipelineJob)
+
+
+def test_run_skip_architecture_search_pipeline():
+    from google.cloud import aiplatform
+
+    from tabflows.pipeline import run_skip_architecture_search_pipeline
+
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        tuning_result_output="gs://test-bucket/tuning_result",
+    )
+
+    job = run_skip_architecture_search_pipeline(config, job_id="test-skip-job")
+    assert isinstance(job, aiplatform.PipelineJob)
+
+    # Test error when tuning_result_output missing
+    config_no_tuning = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+    )
+    with pytest.raises(ValueError, match="tuning_result_output must be provided"):
+        run_skip_architecture_search_pipeline(config_no_tuning)

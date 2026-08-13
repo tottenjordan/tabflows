@@ -17,10 +17,12 @@ from tabflows.inference import (
 from tabflows.pipeline import (
     build_automl_tabular_pipeline,
     build_skip_architecture_search_pipeline,
+    create_tabular_pipeline_job,
     generate_auto_transformation,
     generate_fte_transformations,
     get_bucket_name_and_path,
     get_task_detail,
+    run_skip_architecture_search_pipeline,
     setup_gcp_resources,
     write_fte_transformations,
 )
@@ -31,6 +33,7 @@ __all__ = [
     "build_automl_tabular_pipeline",
     "build_skip_architecture_search_pipeline",
     "cleanup_endpoint",
+    "create_tabular_pipeline_job",
     "deploy_model_to_endpoint",
     "generate_auto_transformation",
     "generate_fte_transformations",
@@ -43,6 +46,7 @@ __all__ = [
     "list_models",
     "predict_online",
     "run_batch_prediction",
+    "run_skip_architecture_search_pipeline",
     "setup_gcp_resources",
     "write_fte_transformations",
 ]

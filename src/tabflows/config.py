@@ -79,6 +79,16 @@ class TabularPipelineConfig(BaseSettings):
     )
     run_evaluation: bool = Field(default=True, description="Whether to run evaluation component")
     run_distillation: bool = Field(default=False, description="Whether to run model distillation")
+    run_architecture_search: bool = Field(
+        default=True,
+        description="Whether to run full architecture search and hyperparameter tuning",
+        validation_alias="RUN_ARCHITECTURE_SEARCH",
+    )
+    tuning_result_output: str | None = Field(
+        default=None,
+        description="GCS URI or artifact path of Stage 1 tuning_result_output",
+        validation_alias="TUNING_RESULT_OUTPUT",
+    )
     export_additional_model_without_custom_ops: bool = Field(
         default=False, description="Export model without custom TF ops"
     )
