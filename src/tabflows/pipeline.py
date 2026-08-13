@@ -1,6 +1,7 @@
 """Pipeline construction and GCS helper functions for AutoML Tabular workflows."""
 
 import json
+import logging
 from typing import Any
 
 from google.cloud import aiplatform, storage
@@ -8,6 +9,8 @@ from google_cloud_pipeline_components.v1.automl.tabular import utils as automl_t
 
 from tabflows.config import TabularPipelineConfig
 from tabflows.experiments import log_experiment_run
+
+logger = logging.getLogger(__name__)
 
 
 def generate_auto_transformation(column_names: list[str]) -> list[dict[str, Any]]:
@@ -245,13 +248,6 @@ def create_tabular_pipeline_job(
     log_experiment: bool = True,
 ) -> aiplatform.PipelineJob:
     """Create a Vertex AI PipelineJob for Stage 1 AutoML Tabular (Full Search)."""
-    if log_experiment:
-        aiplatform.init(
-            project=config.project_id,
-            location=config.location,
-            experiment=config.experiment_name,
-        )
-
     template_path, parameter_values = build_automl_tabular_pipeline(config)
     job = aiplatform.PipelineJob(
         display_name=job_id,
@@ -263,11 +259,14 @@ def create_tabular_pipeline_job(
         enable_caching=False,
     )
     if log_experiment:
-        log_experiment_run(
-            run_name=job_id,
-            pipeline_job=job,
-            config=config,
-        )
+        try:
+            log_experiment_run(
+                run_name=job_id,
+                pipeline_job=job,
+                config=config,
+            )
+        except Exception as e:
+            logger.warning("Failed to log experiment run for pipeline job '%s': %s", job_id, e)
     return job
 
 
@@ -284,12 +283,6 @@ def run_skip_architecture_search_pipeline(
             "tuning_result_output must be provided in config "
             "or as argument tuning_result_artifact_uri"
         )
-    if log_experiment:
-        aiplatform.init(
-            project=config.project_id,
-            location=config.location,
-            experiment=config.experiment_name,
-        )
 
     template_path, parameter_values = build_skip_architecture_search_pipeline(
         config=config,
@@ -305,10 +298,12 @@ def run_skip_architecture_search_pipeline(
         enable_caching=False,
     )
     if log_experiment:
-        log_experiment_run(
-            run_name=job_id,
-            pipeline_job=job,
-            config=config,
-        )
+        try:
+            log_experiment_run(
+                run_name=job_id,
+                pipeline_job=job,
+                config=config,
+            )
+        except Exception as e:
+            logger.warning("Failed to log experiment run for pipeline job '%s': %s", job_id, e)
     return job
-

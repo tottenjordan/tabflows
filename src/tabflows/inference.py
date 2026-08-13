@@ -1,6 +1,7 @@
 """Inference utilities for Vertex AI AutoML Tabular models (Online & Batch)."""
 
 import datetime
+import logging
 from typing import Any
 
 from google.cloud import aiplatform
@@ -8,6 +9,8 @@ from google.cloud import aiplatform
 from tabflows.config import TabularPipelineConfig
 from tabflows.experiments import log_experiment_run
 from tabflows.pipeline import get_task_detail
+
+logger = logging.getLogger(__name__)
 
 
 def list_models(
@@ -76,16 +79,19 @@ def deploy_model_to_endpoint(
     )
 
     if log_experiment:
-        log_experiment_run(
-            run_name=f"deploy-{endpoint_display_name}",
-            params={
-                "endpoint_uri": getattr(endpoint, "resource_name", str(endpoint)),
-                "model_resource_name": getattr(model, "resource_name", str(model)),
-                "serving_machine_type": config.serving_machine_type,
-            },
-            model=model,
-            config=config,
-        )
+        try:
+            log_experiment_run(
+                run_name=f"deploy-{endpoint_display_name}",
+                params={
+                    "endpoint_uri": getattr(endpoint, "resource_name", str(endpoint)),
+                    "model_resource_name": getattr(model, "resource_name", str(model)),
+                    "serving_machine_type": config.serving_machine_type,
+                },
+                model=model,
+                config=config,
+            )
+        except Exception as e:
+            logger.warning("Failed to log experiment run for endpoint deployment: %s", e)
 
     return endpoint
 
@@ -140,16 +146,19 @@ def run_batch_prediction(
     )
 
     if log_experiment:
-        log_experiment_run(
-            run_name=f"batch-{job_display_name}",
-            params={
-                "batch_job_uri": getattr(batch_job, "resource_name", str(batch_job)),
-                "gcs_source": ",".join(gcs_source),
-                "gcs_output": gcs_destination_prefix,
-            },
-            model=model,
-            config=config,
-        )
+        try:
+            log_experiment_run(
+                run_name=f"batch-{job_display_name}",
+                params={
+                    "batch_job_uri": getattr(batch_job, "resource_name", str(batch_job)),
+                    "gcs_source": ",".join(gcs_source),
+                    "gcs_output": gcs_destination_prefix,
+                },
+                model=model,
+                config=config,
+            )
+        except Exception as e:
+            logger.warning("Failed to log experiment run for batch prediction job: %s", e)
 
     return batch_job
 

@@ -161,14 +161,10 @@ def test_create_tabular_pipeline_job_with_experiment():
     )
 
     with (
-        patch("tabflows.pipeline.aiplatform.init") as mock_init,
         patch("tabflows.pipeline.log_experiment_run") as mock_log_exp,
     ):
         job = create_tabular_pipeline_job(config, job_id="test-job-id", log_experiment=True)
         assert isinstance(job, aiplatform.PipelineJob)
-        mock_init.assert_called_once_with(
-            project="test-project", location="us-central1", experiment="test-exp"
-        )
         mock_log_exp.assert_called_once_with(
             run_name="test-job-id",
             pipeline_job=job,
@@ -185,12 +181,10 @@ def test_create_tabular_pipeline_job_without_experiment():
     )
 
     with (
-        patch("tabflows.pipeline.aiplatform.init") as mock_init,
         patch("tabflows.pipeline.log_experiment_run") as mock_log_exp,
     ):
         job = create_tabular_pipeline_job(config, job_id="test-job-id", log_experiment=False)
         assert isinstance(job, aiplatform.PipelineJob)
-        mock_init.assert_not_called()
         mock_log_exp.assert_not_called()
 
 
@@ -205,16 +199,12 @@ def test_run_skip_architecture_search_pipeline_with_experiment():
     )
 
     with (
-        patch("tabflows.pipeline.aiplatform.init") as mock_init,
         patch("tabflows.pipeline.log_experiment_run") as mock_log_exp,
     ):
         job = run_skip_architecture_search_pipeline(
             config, job_id="test-skip-job", log_experiment=True
         )
         assert isinstance(job, aiplatform.PipelineJob)
-        mock_init.assert_called_once_with(
-            project="test-project", location="us-central1", experiment="test-exp"
-        )
         mock_log_exp.assert_called_once_with(
             run_name="test-skip-job",
             pipeline_job=job,
@@ -249,4 +239,3 @@ def test_run_skip_architecture_search_pipeline_without_experiment():
     )
     with pytest.raises(ValueError, match="tuning_result_output must be provided"):
         run_skip_architecture_search_pipeline(config_no_tuning, log_experiment=False)
-
