@@ -1,6 +1,14 @@
 """Tabflows: AutoML Tabular classification pipeline repository for Vertex AI."""
 
 from tabflows.config import TabularPipelineConfig
+from tabflows.inference import (
+    cleanup_endpoint,
+    deploy_model_to_endpoint,
+    get_model_from_pipeline_job,
+    list_models,
+    predict_online,
+    run_batch_prediction,
+)
 from tabflows.pipeline import (
     build_automl_tabular_pipeline,
     build_skip_architecture_search_pipeline,
@@ -15,8 +23,14 @@ __all__ = [
     "TabularPipelineConfig",
     "build_automl_tabular_pipeline",
     "build_skip_architecture_search_pipeline",
+    "cleanup_endpoint",
+    "deploy_model_to_endpoint",
     "generate_auto_transformation",
     "get_bucket_name_and_path",
+    "get_model_from_pipeline_job",
     "get_task_detail",
+    "list_models",
+    "predict_online",
+    "run_batch_prediction",
     "setup_gcp_resources",
 ]

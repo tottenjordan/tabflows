@@ -1,12 +1,23 @@
 """CLI interface for AutoML Tabular workflows."""
 
 import datetime
+import json
 from typing import Any
 
 import click
 from google.cloud import aiplatform, storage
 
 from tabflows.config import TabularPipelineConfig
+from tabflows.inference import (
+    deploy_model_to_endpoint,
+    run_batch_prediction,
+)
+from tabflows.inference import (
+    list_models as sdk_list_models,
+)
+from tabflows.inference import (
+    predict_online as sdk_predict_online,
+)
 from tabflows.pipeline import (
     build_automl_tabular_pipeline,
     build_skip_architecture_search_pipeline,
@@ -29,7 +40,7 @@ def _get_config(
 
 @click.group()
 def main() -> None:
-    """Tabflows CLI for AutoML Tabular classification pipelines."""
+    """Tabflows CLI for AutoML Tabular classification pipelines & inference."""
 
 
 @main.command()
@@ -177,6 +188,134 @@ def run_skip_search(
     else:
         click.echo(f"Submitting pipeline job '{job_id}' to Vertex AI...")
         job.run()
+
+
+@main.command()
+@click.option("--limit", default=5, help="Maximum number of recent models to list")
+@click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
+@click.option("--location", default=None, help="GCP Region (defaults to .env)")
+def list_models(
+    limit: int,
+    project: str | None,
+    location: str | None,
+) -> None:
+    """List recent trained models in Vertex AI Model Registry."""
+    config = _get_config(project, location, None)
+    if not config.project_id:
+        click.echo("Error: project_id must be provided or set in .env")
+        raise click.Abort()
+
+    click.echo(f"Fetching up to {limit} recent models for project '{config.project_id}'...")
+    models = sdk_list_models(config=config, limit=limit)
+
+    if not models:
+        click.echo("No models found in Vertex AI Model Registry.")
+        return
+
+    click.echo(f"\nFound {len(models)} model(s):")
+    for m in models:
+        click.echo(
+            f"- Display Name: {m.display_name}\n"
+            f"  Resource Name: {m.resource_name}\n"
+            f"  Created: {m.create_time}\n"
+        )
+
+
+@main.command()
+@click.option("--model", required=True, help="Model resource name or ID")
+@click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
+@click.option("--location", default=None, help="GCP Region (defaults to .env)")
+@click.option("--bucket", default=None, help="GCS Bucket URI (defaults to .env)")
+@click.option("--machine-type", default="n1-standard-4", help="Serving machine type")
+@click.option("--endpoint-name", default=None, help="Endpoint display name")
+@click.option(
+    "--async-mode",
+    is_flag=True,
+    help="Deploy endpoint asynchronously without blocking",
+)
+def deploy_endpoint(
+    model: str,
+    project: str | None,
+    location: str | None,
+    bucket: str | None,
+    machine_type: str,
+    endpoint_name: str | None,
+    async_mode: bool,
+) -> None:
+    """Deploy an AutoML Tabular model to a real-time Vertex AI Endpoint."""
+    config = _get_config(project, location, bucket)
+    config.serving_machine_type = machine_type
+
+    click.echo(f"Deploying model '{model}' to endpoint...")
+    endpoint = deploy_model_to_endpoint(
+        model=model,
+        config=config,
+        endpoint_display_name=endpoint_name,
+        sync=not async_mode,
+    )
+    click.echo(f"Endpoint deployment initiated: {endpoint.resource_name}")
+
+
+@main.command()
+@click.option("--endpoint", required=True, help="Endpoint resource name or ID")
+@click.option(
+    "--json-instance",
+    required=True,
+    help='JSON string of feature key-value pairs (e.g. \'{"age": "30", ...}\')',
+)
+@click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
+@click.option("--location", default=None, help="GCP Region (defaults to .env)")
+def predict_online(
+    endpoint: str,
+    json_instance: str,
+    project: str | None,
+    location: str | None,
+) -> None:
+    """Execute real-time online inference against a deployed Vertex AI Endpoint."""
+    config = _get_config(project, location, None)
+    if config.project_id:
+        aiplatform.init(project=config.project_id, location=config.location)
+
+    try:
+        parsed = json.loads(json_instance)
+        instances = [parsed] if isinstance(parsed, dict) else parsed
+    except Exception as e:
+        click.echo(f"Error parsing --json-instance JSON: {e}")
+        raise click.Abort() from e
+
+    click.echo(f"Sending online prediction request to endpoint '{endpoint}'...")
+    results = sdk_predict_online(endpoint=endpoint, instances=instances)
+    click.echo(f"Predictions: {json.dumps(results, indent=2)}")
+
+
+@main.command()
+@click.option("--model", required=True, help="Model resource name or ID")
+@click.option("--gcs-source", required=True, help="GCS source URI (gs://...) for input data")
+@click.option(
+    "--gcs-dest", default=None, help="GCS destination prefix (gs://...) for output predictions"
+)
+@click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
+@click.option("--location", default=None, help="GCP Region (defaults to .env)")
+@click.option("--bucket", default=None, help="GCS Bucket URI (defaults to .env)")
+def run_batch_predict(
+    model: str,
+    gcs_source: str,
+    gcs_dest: str | None,
+    project: str | None,
+    location: str | None,
+    bucket: str | None,
+) -> None:
+    """Submit a Batch Prediction job for an AutoML Tabular model."""
+    config = _get_config(project, location, bucket)
+
+    click.echo(f"Submitting batch prediction job for model '{model}'...")
+    batch_job = run_batch_prediction(
+        model=model,
+        config=config,
+        gcs_source=gcs_source,
+        gcs_destination_prefix=gcs_dest,
+    )
+    click.echo(f"Batch prediction job created successfully: {batch_job.resource_name}")
 
 
 if __name__ == "__main__":
