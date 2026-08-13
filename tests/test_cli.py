@@ -277,3 +277,69 @@ def test_log_experiment_non_dict_metrics_json():
 
     assert result.exit_code != 0
     assert "Error: --metrics-json must be a JSON object." in result.output
+
+
+def test_deploy_endpoint_with_traffic_split_json():
+    runner = CliRunner()
+    mock_endpoint = MagicMock()
+    mock_endpoint.resource_name = "projects/123/locations/us-central1/endpoints/ep123"
+
+    with patch("tabflows.cli.deploy_model_to_endpoint") as mock_deploy:
+        mock_deploy.return_value = mock_endpoint
+
+        result = runner.invoke(
+            main,
+            [
+                "deploy-endpoint",
+                "--model",
+                "projects/123/locations/us-central1/models/456",
+                "--project",
+                "my-project",
+                "--location",
+                "us-central1",
+                "--traffic-split-json",
+                '{"0": 90, "1": 10}',
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Endpoint deployment initiated:" in result.output
+        mock_deploy.assert_called_once()
+        _, kwargs = mock_deploy.call_args
+        assert kwargs["model"] == "projects/123/locations/us-central1/models/456"
+        assert kwargs["traffic_split"] == {"0": 90, "1": 10}
+
+
+def test_deploy_endpoint_invalid_traffic_split_json():
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "deploy-endpoint",
+            "--model",
+            "m123",
+            "--traffic-split-json",
+            "invalid json",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Error parsing --traffic-split-json JSON:" in result.output
+
+
+def test_deploy_endpoint_non_dict_traffic_split_json():
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "deploy-endpoint",
+            "--model",
+            "m123",
+            "--traffic-split-json",
+            "[90, 10]",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Error: --traffic-split-json must be a JSON object." in result.output
+

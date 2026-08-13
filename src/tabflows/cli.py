@@ -360,6 +360,11 @@ def log_experiment(
 @click.option("--machine-type", default="n1-standard-4", help="Serving machine type")
 @click.option("--endpoint-name", default=None, help="Endpoint display name")
 @click.option(
+    "--traffic-split-json",
+    default=None,
+    help="JSON string of model traffic split (e.g. '{\"0\": 90, \"1\": 10}')",
+)
+@click.option(
     "--async-mode",
     is_flag=True,
     help="Deploy endpoint asynchronously without blocking",
@@ -371,17 +376,31 @@ def deploy_endpoint(
     bucket: str | None,
     machine_type: str,
     endpoint_name: str | None,
+    traffic_split_json: str | None,
     async_mode: bool,
 ) -> None:
     """Deploy an AutoML Tabular model to a real-time Vertex AI Endpoint."""
     config = _get_config(project, location, bucket)
     config.serving_machine_type = machine_type
 
+    traffic_split: dict[str, int] | None = None
+    if traffic_split_json:
+        try:
+            parsed = json.loads(traffic_split_json)
+            if not isinstance(parsed, dict):
+                click.echo("Error: --traffic-split-json must be a JSON object.")
+                raise click.Abort()
+            traffic_split = parsed
+        except json.JSONDecodeError as e:
+            click.echo(f"Error parsing --traffic-split-json JSON: {e}")
+            raise click.Abort() from e
+
     click.echo(f"Deploying model '{model}' to endpoint...")
     endpoint = deploy_model_to_endpoint(
         model=model,
         config=config,
         endpoint_display_name=endpoint_name,
+        traffic_split=traffic_split,
         sync=not async_mode,
     )
     click.echo(f"Endpoint deployment initiated: {endpoint.resource_name}")

@@ -53,6 +53,7 @@ def deploy_model_to_endpoint(
     model: str | aiplatform.Model,
     config: TabularPipelineConfig | None = None,
     endpoint_display_name: str | None = None,
+    traffic_split: dict[str, int] | None = None,
     sync: bool = True,
     log_experiment: bool = True,
 ) -> aiplatform.Endpoint:
@@ -72,6 +73,7 @@ def deploy_model_to_endpoint(
     endpoint = aiplatform.Endpoint.create(display_name=endpoint_display_name)
     model.deploy(
         endpoint=endpoint,
+        traffic_split=traffic_split,
         machine_type=config.serving_machine_type,
         min_replica_count=config.min_replica_count,
         max_replica_count=config.max_replica_count,

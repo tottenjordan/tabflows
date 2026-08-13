@@ -98,6 +98,7 @@ def test_deploy_model_to_endpoint_with_experiment_logging() -> None:
         mock_create_endpoint.assert_called_once_with(display_name="custom-endpoint-name")
         mock_model.deploy.assert_called_once_with(
             endpoint=mock_endpoint,
+            traffic_split=None,
             machine_type="n1-standard-4",
             min_replica_count=1,
             max_replica_count=2,
@@ -245,3 +246,40 @@ def test_cleanup_endpoint_mocked() -> None:
 
     mock_endpoint.undeploy_all.assert_called_once()
     mock_endpoint.delete.assert_called_once()
+
+
+def test_deploy_model_to_endpoint_with_traffic_split() -> None:
+    """Test deploying model to endpoint with traffic split specified."""
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        location="us-central1",
+        serving_machine_type="n1-standard-4",
+    )
+
+    mock_model = MagicMock()
+    mock_endpoint = MagicMock()
+
+    traffic_split = {"0": 90, "1": 10}
+
+    with (
+        patch("tabflows.inference.aiplatform.init"),
+        patch("tabflows.inference.aiplatform.Endpoint.create", return_value=mock_endpoint),
+        patch("tabflows.inference.log_experiment_run"),
+    ):
+        endpoint = deploy_model_to_endpoint(
+            model=mock_model,
+            config=config,
+            endpoint_display_name="traffic-split-endpoint",
+            traffic_split=traffic_split,
+        )
+
+        mock_model.deploy.assert_called_once_with(
+            endpoint=mock_endpoint,
+            traffic_split=traffic_split,
+            machine_type="n1-standard-4",
+            min_replica_count=config.min_replica_count,
+            max_replica_count=config.max_replica_count,
+            sync=True,
+        )
+        assert endpoint == mock_endpoint
+
