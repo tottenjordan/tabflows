@@ -283,3 +283,41 @@ def test_deploy_model_to_endpoint_with_traffic_split() -> None:
         )
         assert endpoint == mock_endpoint
 
+
+def test_deploy_model_to_existing_endpoint() -> None:
+    """Test deploying a challenger model to an existing endpoint."""
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        location="us-central1",
+        serving_machine_type="n1-standard-4",
+    )
+
+    mock_challenger_model = MagicMock()
+    mock_existing_endpoint = MagicMock()
+    mock_existing_endpoint.display_name = "canary-endpoint"
+    traffic_split = {"0": 90, "1": 10}
+
+    with (
+        patch("tabflows.inference.aiplatform.init"),
+        patch("tabflows.inference.aiplatform.Endpoint.create") as mock_create,
+        patch("tabflows.inference.log_experiment_run"),
+    ):
+        endpoint = deploy_model_to_endpoint(
+            model=mock_challenger_model,
+            config=config,
+            endpoint=mock_existing_endpoint,
+            traffic_split=traffic_split,
+        )
+
+        mock_create.assert_not_called()
+        mock_challenger_model.deploy.assert_called_once_with(
+            endpoint=mock_existing_endpoint,
+            traffic_split=traffic_split,
+            machine_type="n1-standard-4",
+            min_replica_count=config.min_replica_count,
+            max_replica_count=config.max_replica_count,
+            sync=True,
+        )
+        assert endpoint == mock_existing_endpoint
+
+

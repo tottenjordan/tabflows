@@ -52,6 +52,7 @@ def get_model_from_pipeline_job(
 def deploy_model_to_endpoint(
     model: str | aiplatform.Model,
     config: TabularPipelineConfig | None = None,
+    endpoint: str | aiplatform.Endpoint | None = None,
     endpoint_display_name: str | None = None,
     traffic_split: dict[str, int] | None = None,
     sync: bool = True,
@@ -64,13 +65,16 @@ def deploy_model_to_endpoint(
     if isinstance(model, str):
         model = aiplatform.Model(model_name=model)
 
-    if not endpoint_display_name:
-        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        endpoint_display_name = f"automl-tabular-endpoint-{timestamp}"
-
     aiplatform.init(project=config.project_id, location=config.location)
 
-    endpoint = aiplatform.Endpoint.create(display_name=endpoint_display_name)
+    if endpoint is None:
+        if not endpoint_display_name:
+            timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            endpoint_display_name = f"automl-tabular-endpoint-{timestamp}"
+        endpoint = aiplatform.Endpoint.create(display_name=endpoint_display_name)
+    elif isinstance(endpoint, str):
+        endpoint = aiplatform.Endpoint(endpoint_name=endpoint)
+
     model.deploy(
         endpoint=endpoint,
         traffic_split=traffic_split,
@@ -82,8 +86,17 @@ def deploy_model_to_endpoint(
 
     if log_experiment:
         try:
+            display_name = endpoint_display_name
+            if (
+                not display_name
+                and hasattr(endpoint, "display_name")
+                and isinstance(endpoint.display_name, str)
+            ):
+                display_name = endpoint.display_name
+            if not display_name:
+                display_name = "endpoint"
             log_experiment_run(
-                run_name=f"deploy-{endpoint_display_name}",
+                run_name=f"deploy-{display_name}",
                 params={
                     "endpoint_uri": getattr(endpoint, "resource_name", str(endpoint)),
                     "model_resource_name": getattr(model, "resource_name", str(model)),
