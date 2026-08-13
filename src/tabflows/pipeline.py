@@ -49,11 +49,18 @@ def write_auto_transformations(
     write_to_gcs(storage_client, uri, json.dumps(transformations))
 
 
+SAMPLE_TEST_CSV = (
+    "age,job,marital,education,default,balance,housing,loan,contact,day,month,duration,campaign,pdays,previous,poutcome\n"
+    "35,technician,married,tertiary,no,1350,yes,no,cellular,15,may,220,1,-1,0,unknown\n"
+    "42,admin.,single,secondary,no,450,no,no,cellular,18,jul,180,2,-1,0,unknown\n"
+)
+
+
 def setup_gcp_resources(
     config: TabularPipelineConfig,
     storage_client: storage.Client | None = None,
 ) -> dict[str, str]:
-    """Create Cloud Storage bucket if missing and upload initial transform_config JSON.
+    """Create Cloud Storage bucket if missing and upload initial assets.
 
     Returns summary dictionary of created and configured assets.
     """
@@ -75,11 +82,15 @@ def setup_gcp_resources(
 
     write_auto_transformations(storage_client, config.transform_config_path, config.features)
 
+    test_instances_uri = f"{config.bucket_uri}/test_instances.csv"
+    write_to_gcs(storage_client, test_instances_uri, SAMPLE_TEST_CSV)
+
     return {
         "bucket_name": bucket_name,
         "bucket_uri": config.bucket_uri,
         "bucket_created": str(bucket_created),
         "transform_config_path": config.transform_config_path,
+        "test_instances_uri": test_instances_uri,
     }
 
 
