@@ -7,7 +7,10 @@
 ## Features
 
 - **Vertex AI Tabular Workflows**: Built on Google-managed AutoML Tabular pipeline components (`google-cloud-pipeline-components>=2.22.0`, `google_cloud_pipeline_components.v1.automl.tabular`).
-- **Skip Architecture Search**: Accelerates model tuning by reusing Stage 1 hyperparameter tuning results (`stage_1_tuning_result_artifact_uri`) to reduce execution time and training cost.
+- **Skip Architecture Search**: Accelerates model tuning by reusing Stage 1 hyperparameter tuning results (`stage_1_tuning_result_artifact_uri`) to reduce execution time by ~79.6% and training node-hour costs by ~80.4%.
+- **Feature Transform Engine (FTE)**: Supports automated and explicit column-level transformations across `categorical`, `numeric`, `timestamp`, `text_embedding` (`text`), and `auto` data types.
+- **Model Distillation**: Supports producing lighter-weight, lower-latency distilled models alongside standard ensemble models.
+- **Vertex AI Experiments**: Integrated logging and side-by-side comparison of pipeline run hyperparameter configurations and evaluation metrics.
 - **Online & Batch Inference**: Built-in support for deploying models to real-time Vertex AI Endpoints (`n1-standard-4`), executing online predictions, and launching non-blocking Batch Prediction jobs against GCS datasets.
 - **Automatic `.env` Configuration**: Seamless environment configuration powered by `pydantic-settings` (`BaseSettings`), automatically reading `GCP_PROJECT`, `GCP_LOCATION`, `GCP_BUCKET_URI`, and pipeline parameters from `.env`.
 - **CLI & Python SDK Interfaces**: Command-line interface and modular Python SDK for provisioning GCS assets, compiling templates, submitting jobs asynchronously (`job.submit()`), and running inference.
@@ -21,22 +24,31 @@
 tabflows/
 ├── src/tabflows/              # Tabflows Python library
 │   ├── config.py              # TabularPipelineConfig schema & .env settings loader
-│   ├── pipeline.py            # AutoML Tabular pipeline builders & GCS helpers
+│   ├── pipeline.py            # AutoML Tabular pipeline builders, FTE, & GCS helpers
 │   ├── inference.py           # Online endpoint deployment & batch prediction SDK
-│   ├── cli.py                 # Click CLI interface (setup / run-automl / inference)
+│   ├── experiments.py         # Model evaluation & Vertex AI Experiment tracking
+│   ├── cli.py                 # Click CLI interface (setup / run-automl / inference / fte)
 │   └── __init__.py            # Library exports
 ├── scripts/                   # Helper scripts
 │   └── setup_gcp_resources.py # Standalone GCP bucket & asset setup script
 ├── notebooks/                 # Jupyter notebook tutorials
 │   ├── 01_automl_tabular_classification.ipynb
-│   └── 02_automl_tabular_inference.ipynb
+│   ├── 02_automl_tabular_inference.ipynb
+│   ├── 03_automl_tabular_evaluation_and_experiments.ipynb
+│   ├── 04_skip_architecture_search_benchmarks.ipynb
+│   └── 05_feature_transform_engine.ipynb
 ├── tests/                     # Unit tests
+│   ├── test_cli.py            # CLI integration tests
 │   ├── test_config.py         # Config schema & .env tests
-│   ├── test_pipeline.py       # Pipeline builder & GCS helper tests
-│   └── test_inference.py      # Online & batch inference unit tests
+│   ├── test_experiments.py    # Experiment tracking & metrics tests
+│   ├── test_inference.py      # Online & batch inference unit tests
+│   └── test_pipeline.py       # Pipeline builder & FTE unit tests
 ├── docs/notes/                # Persistent technical notes & index (<200 lines)
 │   ├── tabular_workflows.md
+│   ├── feature_transform_engine.md
+│   ├── skip_architecture_search_benchmarks.md
 │   ├── inference.md
+│   ├── evaluation_and_experiments.md
 │   └── tooling.md
 ├── CODE_STANDARDS.md          # Code & engineering standards
 ├── GEMINI.md                  # AI workspace context
@@ -103,16 +115,21 @@ uv run python scripts/setup_gcp_resources.py
 
 ### 2. Command Line Interface (CLI)
 
-Use the `tabflows` CLI to compile templates, submit pipeline jobs, or execute model inference. If `--job-id` is omitted, a unique timestamped ID (`automl-tabular-YYYYMMDDHHMMSS`) is generated automatically.
+Use the `tabflows` CLI to compile templates, submit pipeline jobs, generate FTE configurations, or execute model inference. If `--job-id` is omitted, a unique timestamped ID (`automl-tabular-YYYYMMDDHHMMSS`) is generated automatically.
 
 ```bash
 # Compile standard AutoML Tabular pipeline template locally
 uv run tabflows run-automl --compile-only
 
-# Submit standard AutoML Tabular pipeline asynchronously to Vertex AI (Stage 1)
-uv run tabflows run-automl --async-mode
+# Submit standard AutoML Tabular pipeline asynchronously with model distillation enabled
+uv run tabflows run-automl --distill --async-mode
 
-# Submit Skip Architecture Search pipeline (Stage 2 - requires Stage 1 tuning result artifact URI)
+# Generate Feature Transform Engine (FTE) JSON configuration
+uv run tabflows generate-fte-config \
+    --output-path "./transform_config_fte.json" \
+    --columns-json '{"age": "numeric", "job": "categorical", "signup_date": "timestamp", "notes": "text"}'
+
+# Submit Skip Architecture Search pipeline (Stage 2 - reusing Stage 1 tuning result artifact URI)
 uv run tabflows run-skip-search \
     --tuning-artifact-uri "gs://your-bucket-name/automl_tabular_pipeline/stage1_job_id/automl-tabular-stage-1-tuner/tuning_result_output" \
     --async-mode
@@ -140,46 +157,64 @@ uv run tabflows list-experiments
 from dotenv import load_dotenv
 from tabflows import (
     TabularPipelineConfig,
+    build_automl_tabular_pipeline,
     cleanup_endpoint,
     deploy_model_to_endpoint,
+    generate_fte_transformations,
     get_model_evaluation_metrics,
     list_experiment_runs,
     predict_online,
     run_batch_prediction,
+    run_skip_architecture_search_pipeline,
 )
 
-# 1. Load .env environment variables
+# 1. Load .env environment variables and configuration
 load_dotenv()
-config = TabularPipelineConfig()
+config = TabularPipelineConfig(run_distillation=True)
 
-# 2. Inspect Model Evaluation Metrics (Log Loss, AUC-ROC, etc.)
+# 2. Generate Feature Transform Engine (FTE) column transformations
+fte_transformations = generate_fte_transformations(
+    {
+        "age": "numeric",
+        "job": "categorical",
+        "signup_date": "timestamp",
+        "notes": "text",
+    }
+)
+
+# 3. Build Stage 1 Pipeline (Full Search)
+template_path, params = build_automl_tabular_pipeline(config)
+
+# 4. Build Stage 2 Pipeline (Skip Architecture Search reusing tuning output)
+stage2_job = run_skip_architecture_search_pipeline(
+    config=config,
+    tuning_result_artifact_uri="gs://your-bucket/stage1_job/automl-tabular-stage-1-tuner/tuning_result_output",
+    job_id="stage2-skip-search-run",
+)
+
+# 5. Inspect Model Evaluation Metrics (Log Loss, AUC-ROC, etc.)
 model_resource_name = "projects/YOUR_PROJECT/locations/us-central1/models/YOUR_MODEL_ID"
 metrics = get_model_evaluation_metrics(model=model_resource_name, config=config)
 print("Log Loss:", metrics.get("logLoss"))
 print("ROC AUC:", metrics.get("auRoc"))
 
-# 3. Online Inference (Deploy real-time Endpoint)
+# 6. Online Inference (Deploy real-time Endpoint & Predict)
 endpoint = deploy_model_to_endpoint(model=model_resource_name, config=config)
-
-# 4. Real-time Prediction
 predictions = predict_online(
     endpoint=endpoint,
     instances=[{"age": "35", "job": "technician", "marital": "married"}],
 )
 print("Online Predictions:", predictions)
-
-# 5. Undeploy & Clean Up Endpoint
 cleanup_endpoint(endpoint=endpoint)
 
-# 6. Batch Inference
+# 7. Batch Inference
 batch_job = run_batch_prediction(
     model=model_resource_name,
     config=config,
     gcs_source=f"{config.bucket_uri}/test_instances.csv",
 )
-print("Batch Prediction Job Submitted:", batch_job.resource_name)
 
-# 7. Experiment Tracking (Compare Runs DataFrame)
+# 8. Experiment Tracking (Compare Runs DataFrame)
 df = list_experiment_runs(config=config)
 print(df)
 ```
@@ -192,14 +227,20 @@ Register the project environment as a Jupyter kernel and launch the tutorial not
 # Register Jupyter kernel
 uv run python -m ipykernel install --sys-prefix --name tabflows --display-name "Python 3.11 (tabflows)"
 
-# Launch Classification Training Notebook
+# 01. Classification Training Notebook
 uv run jupyter notebook notebooks/01_automl_tabular_classification.ipynb
 
-# Launch Online & Batch Inference Notebook
+# 02. Online & Batch Inference Notebook
 uv run jupyter notebook notebooks/02_automl_tabular_inference.ipynb
 
-# Launch Model Evaluation & Experiment Tracking Notebook
+# 03. Model Evaluation & Experiment Tracking Notebook
 uv run jupyter notebook notebooks/03_automl_tabular_evaluation_and_experiments.ipynb
+
+# 04. Skip Architecture Search & Benchmarks Notebook
+uv run jupyter notebook notebooks/04_skip_architecture_search_benchmarks.ipynb
+
+# 05. Feature Transform Engine (FTE) Notebook
+uv run jupyter notebook notebooks/05_feature_transform_engine.ipynb
 ```
 
 ---
