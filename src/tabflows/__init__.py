@@ -5,6 +5,7 @@ from tabflows.inference import (
     cleanup_endpoint,
     deploy_model_to_endpoint,
     get_model_from_pipeline_job,
+    list_models,
     predict_online,
     run_batch_prediction,
 )
@@ -28,6 +29,7 @@ __all__ = [
     "get_bucket_name_and_path",
     "get_model_from_pipeline_job",
     "get_task_detail",
+    "list_models",
     "predict_online",
     "run_batch_prediction",
     "setup_gcp_resources",

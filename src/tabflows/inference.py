@@ -9,6 +9,19 @@ from tabflows.config import TabularPipelineConfig
 from tabflows.pipeline import get_task_detail
 
 
+def list_models(
+    config: TabularPipelineConfig | None = None,
+    limit: int = 5,
+) -> list[aiplatform.Model]:
+    """List recent Vertex AI Models in the project."""
+    if config is None:
+        config = TabularPipelineConfig()
+
+    aiplatform.init(project=config.project_id, location=config.location)
+    models = aiplatform.Model.list(order_by="create_time desc")
+    return models[:limit]
+
+
 def get_model_from_pipeline_job(
     pipeline_job: str | aiplatform.PipelineJob,
 ) -> aiplatform.Model:

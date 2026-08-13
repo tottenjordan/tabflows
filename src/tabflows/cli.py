@@ -13,6 +13,9 @@ from tabflows.inference import (
     run_batch_prediction,
 )
 from tabflows.inference import (
+    list_models as sdk_list_models,
+)
+from tabflows.inference import (
     predict_online as sdk_predict_online,
 )
 from tabflows.pipeline import (
@@ -185,6 +188,37 @@ def run_skip_search(
     else:
         click.echo(f"Submitting pipeline job '{job_id}' to Vertex AI...")
         job.run()
+
+
+@main.command()
+@click.option("--limit", default=5, help="Maximum number of recent models to list")
+@click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
+@click.option("--location", default=None, help="GCP Region (defaults to .env)")
+def list_models(
+    limit: int,
+    project: str | None,
+    location: str | None,
+) -> None:
+    """List recent trained models in Vertex AI Model Registry."""
+    config = _get_config(project, location, None)
+    if not config.project_id:
+        click.echo("Error: project_id must be provided or set in .env")
+        raise click.Abort()
+
+    click.echo(f"Fetching up to {limit} recent models for project '{config.project_id}'...")
+    models = sdk_list_models(config=config, limit=limit)
+
+    if not models:
+        click.echo("No models found in Vertex AI Model Registry.")
+        return
+
+    click.echo(f"\nFound {len(models)} model(s):")
+    for m in models:
+        click.echo(
+            f"- Display Name: {m.display_name}\n"
+            f"  Resource Name: {m.resource_name}\n"
+            f"  Created: {m.create_time}\n"
+        )
 
 
 @main.command()

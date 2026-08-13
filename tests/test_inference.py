@@ -9,9 +9,27 @@ from tabflows.inference import (
     cleanup_endpoint,
     deploy_model_to_endpoint,
     get_model_from_pipeline_job,
+    list_models,
     predict_online,
     run_batch_prediction,
 )
+
+
+def test_list_models_mocked() -> None:
+    """Test listing recent models from Vertex AI Model Registry."""
+    config = TabularPipelineConfig(project_id="test-project", location="us-central1")
+    mock_models = [MagicMock(), MagicMock()]
+
+    with (
+        patch("tabflows.inference.aiplatform.init") as mock_init,
+        patch("tabflows.inference.aiplatform.Model.list") as mock_list,
+    ):
+        mock_list.return_value = mock_models
+        models = list_models(config=config, limit=2)
+
+        mock_init.assert_called_once_with(project="test-project", location="us-central1")
+        mock_list.assert_called_once_with(order_by="create_time desc")
+        assert models == mock_models
 
 
 def test_get_model_from_pipeline_job_mocked() -> None:
