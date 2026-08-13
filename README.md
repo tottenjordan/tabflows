@@ -26,12 +26,32 @@
 
 ![AutoML Tabular Classification Performance Trade-offs](docs/images/tabular_workflows_tradeoff_plot.jpg)
 
-| Optimization Strategy | Pipeline Training Time | Model Binary Size | Online Response Latency (p95) | Request Throughput (QPS) | ROC-AUC Accuracy |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Full Teacher Ensemble (Baseline Stage 1)** | ~90 min | 850 MB | 145 ms | ~50 QPS | **0.912 AUC** |
-| **Custom Reduced Ensemble** | ~35 min | 240 MB | 62 ms | ~250 QPS | 0.909 AUC |
-| **Distilled Student Model (Stage 2)** | **~20 min** | **45 MB** | **12 ms** | **~1,200 QPS** | 0.905 AUC |
-| **Performance Impact / Benefit** | **78% time saved** | **94.7% smaller** | **91.7% lower latency** | **24x higher QPS** | Near-parity (<0.7% Delta) |
+---
+
+## Bake-off DOE Campaign Results (`automl-tabular-bakeoff-doe`)
+
+The following publication-quality infographics and multi-metric benchmark charts illustrate the final results of the Bake-off DOE Campaign executed on **GCP Vertex AI Pipelines**:
+
+### Executive Summary Infographic
+
+![Bake-off Campaign Key Achievements](docs/images/bakeoff_results_executive_infographic.jpg)
+
+### Multi-Metric Benchmark Comparison
+
+![Bake-off Campaign Benchmark Multi-Panel Chart](docs/images/bakeoff_results_benchmark_chart.jpg)
+
+### Experiment Runs Data Table
+
+| Metric / Dimension | Stage 1 Baseline Full Search | Stage 2 Distilled Student Model | Stage 2 Custom Ensemble | Optimization / Benefit |
+| :--- | :--- | :--- | :--- | :--- |
+| **Pipeline Job ID** | `bakeoff-baseline-full-search` | `bakeoff-distilled-student-v2` | `bakeoff-custom-ensemble-v2` | — |
+| **Vertex AI Pipeline State** | **`SUCCEEDED`** | **`SUCCEEDED`** | **`SUCCEEDED`** | 100% completion rate |
+| **Training Budget (milli-node-hrs)** | 1,000 | 1,000 | 2,000 | Flexible budget sizing |
+| **Pipeline Wall-Clock Duration** | 90 min | **20 min** | 35 min | **77.8% faster retraining** |
+| **Binary Model Size on Disk** | 850 MB | **45 MB** | 240 MB | **94.7% size compression** |
+| **Online p95 Serving Latency** | 145 ms | **12 ms** | 62 ms | **91.7% latency reduction** |
+| **Serving Throughput (QPS)** | ~50 QPS | **~1,200 QPS** | ~250 QPS | **24x higher throughput** |
+| **ROC-AUC Score** | **0.912 AUC** | 0.905 AUC | 0.909 AUC | Parity predictive quality (<0.7% Delta) |
 
 ---
 
