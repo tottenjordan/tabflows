@@ -59,3 +59,18 @@ def test_tabular_pipeline_config_custom_values():
         == "gs://custom-bucket/custom_pipeline/transform_config_unique.json"
     )
     assert config.prediction_type == "regression"
+    assert config.bigquery_table_path is None
+    assert config.predefined_split_key is None
+
+
+def test_tabular_pipeline_config_bigquery_and_split_key():
+    config = TabularPipelineConfig(
+        project_id="custom-project",
+        bucket_uri="gs://custom-bucket/",
+        bigquery_table_path="bq://proj.ds.tbl",
+        predefined_split_key="split_flag",
+    )
+
+    assert config.bigquery_table_path == "bq://proj.ds.tbl"
+    assert config.predefined_split_key == "split_flag"
+

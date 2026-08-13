@@ -239,3 +239,35 @@ def test_run_skip_architecture_search_pipeline_without_experiment():
     )
     with pytest.raises(ValueError, match="tuning_result_output must be provided"):
         run_skip_architecture_search_pipeline(config_no_tuning, log_experiment=False)
+
+
+def test_build_automl_tabular_pipeline_bigquery_and_predefined_split():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        bigquery_table_path="bq://test-project.dataset.table",
+        predefined_split_key="split_col",
+    )
+
+    template_path, parameter_values = build_automl_tabular_pipeline(config)
+    assert isinstance(template_path, str)
+    assert isinstance(parameter_values, dict)
+    assert parameter_values["data_source_bigquery_table_path"] == "bq://test-project.dataset.table"
+    assert parameter_values["predefined_split_key"] == "split_col"
+
+
+def test_build_skip_architecture_search_pipeline_bigquery_and_predefined_split():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        bigquery_table_path="bq://test-project.dataset.table",
+        predefined_split_key="split_col",
+    )
+    tuning_uri = "gs://test-bucket/automl_tabular_pipeline/tuning_result"
+
+    template_path, parameter_values = build_skip_architecture_search_pipeline(config, tuning_uri)
+    assert isinstance(template_path, str)
+    assert isinstance(parameter_values, dict)
+    assert parameter_values["data_source_bigquery_table_path"] == "bq://test-project.dataset.table"
+    assert parameter_values["predefined_split_key"] == "split_col"
+

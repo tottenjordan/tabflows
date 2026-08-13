@@ -63,6 +63,9 @@ class TabularPipelineConfig(BaseSettings):
     data_source_bigquery_table_path: str | None = Field(
         default=None, description="BigQuery table URI format bq://project.dataset.table"
     )
+    bigquery_table_path: str | None = Field(
+        default=None, description="BigQuery table URI format bq://project.dataset.table"
+    )
     training_fraction: float | None = Field(default=0.8, description="Train split fraction")
     validation_fraction: float | None = Field(default=0.1, description="Validation split fraction")
     test_fraction: float | None = Field(default=0.1, description="Test split fraction")

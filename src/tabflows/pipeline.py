@@ -163,7 +163,9 @@ def build_automl_tabular_pipeline(
         transformations=config.transform_config_path,
         train_budget_milli_node_hours=config.train_budget_milli_node_hours,
         data_source_csv_filenames=config.data_source_csv_filenames,
-        data_source_bigquery_table_path=config.data_source_bigquery_table_path,
+        data_source_bigquery_table_path=(
+            config.bigquery_table_path or config.data_source_bigquery_table_path
+        ),
         weight_column=config.weight_column,
         predefined_split_key=config.predefined_split_key,
         timestamp_split_key=config.timestamp_split_key,
@@ -200,7 +202,9 @@ def build_skip_architecture_search_pipeline(
         transformations=config.transform_config_path,
         train_budget_milli_node_hours=config.train_budget_milli_node_hours,
         data_source_csv_filenames=config.data_source_csv_filenames,
-        data_source_bigquery_table_path=config.data_source_bigquery_table_path,
+        data_source_bigquery_table_path=(
+            config.bigquery_table_path or config.data_source_bigquery_table_path
+        ),
         weight_column=config.weight_column,
         predefined_split_key=config.predefined_split_key,
         timestamp_split_key=config.timestamp_split_key,
