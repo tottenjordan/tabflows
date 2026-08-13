@@ -109,11 +109,13 @@ Use the `tabflows` CLI to compile templates, submit pipeline jobs, or execute mo
 # Compile standard AutoML Tabular pipeline template locally
 uv run tabflows run-automl --compile-only
 
-# Submit standard AutoML Tabular pipeline asynchronously to Vertex AI
+# Submit standard AutoML Tabular pipeline asynchronously to Vertex AI (Stage 1)
 uv run tabflows run-automl --async-mode
 
-# Deploy trained model to an Online Endpoint
-uv run tabflows deploy-endpoint --model "projects/.../models/MODEL_ID"
+# Submit Skip Architecture Search pipeline (Stage 2 - requires Stage 1 tuning result artifact URI)
+uv run tabflows run-skip-search \
+    --tuning-artifact-uri "gs://your-bucket-name/automl_tabular_pipeline/stage1_job_id/automl-tabular-stage-1-tuner/tuning_result_output" \
+    --async-mode
 
 # Execute real-time Online Inference
 uv run tabflows predict-online \
