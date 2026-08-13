@@ -40,6 +40,10 @@ The following publication-quality infographics and multi-metric benchmark charts
 
 ![Bake-off Campaign Benchmark Multi-Panel Chart](docs/images/bakeoff_results_benchmark_chart.jpg)
 
+### Vertex AI Pipeline DAG Execution Graph
+
+![Vertex AI Tabular Workflows Pipeline DAG Graph](docs/images/tabular_wrkflw_collapsed_pipe.png)
+
 ### Experiment Runs Data Table
 
 | Metric / Dimension | Stage 1 Baseline Full Search | Stage 2 Distilled Student Model | Stage 2 Custom Ensemble | Optimization / Benefit |
