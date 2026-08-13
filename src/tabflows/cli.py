@@ -228,6 +228,11 @@ def list_models(
 @click.option("--bucket", default=None, help="GCS Bucket URI (defaults to .env)")
 @click.option("--machine-type", default="n1-standard-4", help="Serving machine type")
 @click.option("--endpoint-name", default=None, help="Endpoint display name")
+@click.option(
+    "--async-mode",
+    is_flag=True,
+    help="Deploy endpoint asynchronously without blocking",
+)
 def deploy_endpoint(
     model: str,
     project: str | None,
@@ -235,6 +240,7 @@ def deploy_endpoint(
     bucket: str | None,
     machine_type: str,
     endpoint_name: str | None,
+    async_mode: bool,
 ) -> None:
     """Deploy an AutoML Tabular model to a real-time Vertex AI Endpoint."""
     config = _get_config(project, location, bucket)
@@ -245,8 +251,9 @@ def deploy_endpoint(
         model=model,
         config=config,
         endpoint_display_name=endpoint_name,
+        sync=not async_mode,
     )
-    click.echo(f"Endpoint deployed successfully: {endpoint.resource_name}")
+    click.echo(f"Endpoint deployment initiated: {endpoint.resource_name}")
 
 
 @main.command()

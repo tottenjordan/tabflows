@@ -49,6 +49,7 @@ def deploy_model_to_endpoint(
     model: str | aiplatform.Model,
     config: TabularPipelineConfig | None = None,
     endpoint_display_name: str | None = None,
+    sync: bool = True,
 ) -> aiplatform.Endpoint:
     """Deploy an AutoML Tabular model to a real-time Vertex AI Endpoint."""
     if config is None:
@@ -69,7 +70,7 @@ def deploy_model_to_endpoint(
         machine_type=config.serving_machine_type,
         min_replica_count=config.min_replica_count,
         max_replica_count=config.max_replica_count,
-        sync=True,
+        sync=sync,
     )
     return endpoint
 
