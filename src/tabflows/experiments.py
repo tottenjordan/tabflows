@@ -94,7 +94,7 @@ def log_experiment_run(
     )
 
     clean_run_name = run_name.lower().replace("_", "-").strip("-")
-    run = aiplatform.start_run(run=clean_run_name)
+    run = aiplatform.start_run(run=clean_run_name, resume=True)
 
     if params:
         aiplatform.log_params(params)
