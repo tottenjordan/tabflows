@@ -5,6 +5,8 @@ from tabflows.experiments import (
     get_model_evaluation_metrics,
     get_model_feature_attributions,
     list_experiment_runs,
+    log_experiment_run,
+    run_doe_campaign,
 )
 from tabflows.inference import (
     cleanup_endpoint,
@@ -44,9 +46,12 @@ __all__ = [
     "get_task_detail",
     "list_experiment_runs",
     "list_models",
+    "log_experiment_run",
     "predict_online",
     "run_batch_prediction",
+    "run_doe_campaign",
     "run_skip_architecture_search_pipeline",
     "setup_gcp_resources",
     "write_fte_transformations",
 ]
+

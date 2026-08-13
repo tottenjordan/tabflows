@@ -7,6 +7,8 @@ from tabflows.experiments import (
     get_model_evaluation_metrics,
     get_model_feature_attributions,
     list_experiment_runs,
+    log_experiment_run,
+    run_doe_campaign,
 )
 
 
@@ -77,3 +79,120 @@ def test_list_experiment_runs_mocked() -> None:
         mock_init.assert_called_once_with(project="test-project", location="us-central1")
         mock_get_df.assert_called_once_with(experiment="custom-experiment")
         assert df == mock_df
+
+
+def test_log_experiment_run_basic() -> None:
+    """Test logging an experiment run with params and metrics."""
+    config = TabularPipelineConfig(
+        project_id="test-proj",
+        location="us-central1",
+        experiment_name="test-exp",
+    )
+    mock_run = MagicMock()
+
+    with (
+        patch("tabflows.experiments.aiplatform.init") as mock_init,
+        patch("tabflows.experiments.aiplatform.start_run", return_value=mock_run) as mock_start,
+        patch("tabflows.experiments.aiplatform.log_params") as mock_log_params,
+        patch("tabflows.experiments.aiplatform.log_metrics") as mock_log_metrics,
+    ):
+        run = log_experiment_run(
+            run_name="run-1",
+            params={"lr": 0.01},
+            metrics={"acc": 0.92},
+            config=config,
+        )
+
+        mock_init.assert_called_once_with(
+            project="test-proj", location="us-central1", experiment="test-exp"
+        )
+        mock_start.assert_called_once_with(run_name="run-1")
+        mock_log_params.assert_called_once_with({"lr": 0.01})
+        mock_log_metrics.assert_called_once_with({"acc": 0.92})
+        assert run == mock_run
+
+
+def test_log_experiment_run_with_model() -> None:
+    """Test logging experiment run including model evaluation metrics."""
+    mock_model = MagicMock()
+    mock_run = MagicMock()
+
+    with (
+        patch("tabflows.experiments.aiplatform.init"),
+        patch("tabflows.experiments.aiplatform.start_run", return_value=mock_run),
+        patch("tabflows.experiments.aiplatform.log_metrics") as mock_log_metrics,
+        patch(
+            "tabflows.experiments.get_model_evaluation_metrics",
+            return_value={"logLoss": 0.15},
+        ) as mock_get_eval,
+    ):
+        run = log_experiment_run(run_name="run-model", model=mock_model)
+
+        mock_get_eval.assert_called_once()
+        mock_log_metrics.assert_called_once_with({"logLoss": 0.15})
+        assert run == mock_run
+
+
+def test_log_experiment_run_with_pipeline_job_str() -> None:
+    """Test logging experiment run with string pipeline job."""
+    mock_run = MagicMock()
+    job_str = "projects/123/locations/us-central1/pipelineJobs/456"
+
+    with (
+        patch("tabflows.experiments.aiplatform.init"),
+        patch("tabflows.experiments.aiplatform.start_run", return_value=mock_run),
+        patch("tabflows.experiments.aiplatform.log_params") as mock_log_params,
+    ):
+        run = log_experiment_run(run_name="run-pj-str", pipeline_job=job_str)
+
+        mock_log_params.assert_called_once_with({"pipeline_job_resource_name": job_str})
+        assert run == mock_run
+
+
+def test_log_experiment_run_with_pipeline_job_obj() -> None:
+    """Test logging experiment run with PipelineJob object."""
+    mock_run = MagicMock()
+    mock_job = MagicMock()
+    mock_job.resource_name = "projects/123/locations/us-central1/pipelineJobs/789"
+
+    with (
+        patch("tabflows.experiments.aiplatform.init"),
+        patch("tabflows.experiments.aiplatform.start_run", return_value=mock_run),
+        patch("tabflows.experiments.aiplatform.log_params") as mock_log_params,
+    ):
+        run = log_experiment_run(run_name="run-pj-obj", pipeline_job=mock_job)
+
+        mock_log_params.assert_called_once_with(
+            {"pipeline_job_resource_name": "projects/123/locations/us-central1/pipelineJobs/789"}
+        )
+        mock_run._log_pipeline_job.assert_called_once_with(mock_job)
+        assert run == mock_run
+
+
+def test_run_doe_campaign() -> None:
+    """Test running a Design of Experiments campaign across variants."""
+    variants = [
+        {"name": "baseline", "distill": False},
+        {"name": "distilled", "distill": True},
+    ]
+    mock_run1 = MagicMock()
+    mock_run2 = MagicMock()
+
+    with patch(
+        "tabflows.experiments.log_experiment_run", side_effect=[mock_run1, mock_run2]
+    ) as mock_log_exp:
+        summary = run_doe_campaign("exp-camp", variants)
+
+        assert len(summary) == 2
+        assert mock_log_exp.call_count == 2
+
+        assert summary[0]["campaign"] == "exp-camp"
+        assert summary[0]["variant_name"] == "baseline"
+        assert summary[0]["run_name"] == "exp-camp-baseline"
+        assert summary[0]["params"] == variants[0]
+        assert summary[0]["run"] == mock_run1
+
+        assert summary[1]["variant_name"] == "distilled"
+        assert summary[1]["run_name"] == "exp-camp-distilled"
+        assert summary[1]["run"] == mock_run2
+
