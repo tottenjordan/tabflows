@@ -25,7 +25,7 @@ def get_model_evaluation_metrics(
 
     # Return metrics dictionary from primary evaluation
     eval_obj = evaluations[0]
-    return dict(eval_obj.metrics)
+    return dict(eval_obj.metrics or {})
 
 
 def get_model_feature_attributions(
@@ -97,8 +97,11 @@ def log_experiment_run(
 
     if model is not None:
         model_metrics = get_model_evaluation_metrics(model=model, config=config)
-        if model_metrics:
-            aiplatform.log_metrics(model_metrics)
+        scalar_metrics = {
+            k: v for k, v in model_metrics.items() if isinstance(v, (int, float, str))
+        }
+        if scalar_metrics:
+            aiplatform.log_metrics(scalar_metrics)
 
     if pipeline_job is not None:
         if isinstance(pipeline_job, str):
@@ -152,4 +155,3 @@ def run_doe_campaign(
         )
 
     return summary
-
