@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -168,7 +168,9 @@ class TabularPipelineConfig(BaseSettings):
     fte_transformations_path: str | None = Field(
         default=None,
         description="GCS URI or path for custom Feature Transform Engine JSON spec",
-        validation_alias="FTE_TRANSFORMATIONS_PATH",
+        validation_alias=AliasChoices(
+            "FTE_TRANSFORMATIONS_PATH", "transform_config_path", "fte_transformations_path"
+        ),
     )
 
     @property
@@ -179,4 +181,6 @@ class TabularPipelineConfig(BaseSettings):
     @property
     def transform_config_path(self) -> str:
         """Return full Cloud Storage URI for transformation configuration JSON."""
+        if self.fte_transformations_path:
+            return self.fte_transformations_path
         return f"{self.root_dir}/transform_config_unique.json"
