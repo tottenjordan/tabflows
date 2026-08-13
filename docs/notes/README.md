@@ -4,6 +4,7 @@ This directory contains persistent notes on architecture, libraries, environment
 
 ## Topic Notes
 - [Tabular Workflows](file:///usr/local/google/home/jordantotten/antigravity/tabflows/docs/notes/tabular_workflows.md): Architecture, component task names, GCP v1 pipeline APIs, skip-architecture search, and transformation configs.
+- [Inference & Serving](file:///usr/local/google/home/jordantotten/antigravity/tabflows/docs/notes/inference.md): Online real-time endpoint deployment, JSON instance prediction, batch inference execution, and endpoint resource cleanup.
 - [Tooling & Environment Management](file:///usr/local/google/home/jordantotten/antigravity/tabflows/docs/notes/tooling.md): Package resolution with `uv`, PyPI default index configuration, `ruff`, `ty`, and `pytest` integration.
 
 ## Key Repository Files

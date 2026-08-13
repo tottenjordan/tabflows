@@ -125,6 +125,31 @@ class TabularPipelineConfig(BaseSettings):
     dataflow_use_public_ips: bool = Field(
         default=True, description="Whether Dataflow uses public IPs"
     )
+    serving_machine_type: str = Field(
+        default="n1-standard-4",
+        description="Serving machine type for online endpoint deployment",
+        validation_alias="SERVING_MACHINE_TYPE",
+    )
+    min_replica_count: int = Field(
+        default=1,
+        description="Minimum replica count for endpoint deployment",
+        validation_alias="MIN_REPLICA_COUNT",
+    )
+    max_replica_count: int = Field(
+        default=1,
+        description="Maximum replica count for endpoint deployment",
+        validation_alias="MAX_REPLICA_COUNT",
+    )
+    batch_predict_instances_format: str = Field(
+        default="csv",
+        description="Input instance format for batch prediction (csv, jsonl, bigquery)",
+        validation_alias="BATCH_PREDICT_INSTANCES_FORMAT",
+    )
+    batch_predict_predictions_format: str = Field(
+        default="jsonl",
+        description="Output predictions format for batch prediction (jsonl, csv, bigquery)",
+        validation_alias="BATCH_PREDICT_PREDICTIONS_FORMAT",
+    )
 
     @property
     def root_dir(self) -> str:
