@@ -12,6 +12,12 @@ To execute a Stage 2 Skip Architecture Search pipeline:
 1. Extract the GCS URI of `tuning_result_output` from the Stage 1 pipeline run.
 2. Pass the URI to `build_skip_architecture_search_pipeline` via parameter `stage_1_tuning_result_artifact_uri` or to CLI `--tuning-artifact-uri`.
 
+## Architecture & Trade-off Diagrams
+
+![Vertex AI Tabular Workflows Architecture](../images/tabular_workflows_architecture_diagram.jpg)
+
+![AutoML Tabular Classification Performance Trade-offs](../images/tabular_workflows_tradeoff_plot.jpg)
+
 ## Performance & Cost Benchmarks
 Comparing Stage 1 (Full Search) vs Stage 2 (Skip Architecture Search) on standard benchmark runs:
 
