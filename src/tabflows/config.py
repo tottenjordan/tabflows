@@ -49,6 +49,16 @@ class TabularPipelineConfig(BaseSettings):
         description="Optimization goal",
         validation_alias="OPTIMIZATION_OBJECTIVE",
     )
+    optimization_objective_recall_value: float | None = Field(
+        default=None,
+        description="Target recall value for maximize-precision-at-recall objective",
+        validation_alias="OPTIMIZATION_OBJECTIVE_RECALL_VALUE",
+    )
+    optimization_objective_precision_value: float | None = Field(
+        default=None,
+        description="Target precision value for maximize-recall-at-precision objective",
+        validation_alias="OPTIMIZATION_OBJECTIVE_PRECISION_VALUE",
+    )
     target_column: str = Field(
         default="deposit",
         description="Target column name",

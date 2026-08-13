@@ -271,3 +271,19 @@ def test_build_skip_architecture_search_pipeline_bigquery_and_predefined_split()
     assert parameter_values["data_source_bigquery_table_path"] == "bq://test-project.dataset.table"
     assert parameter_values["predefined_split_key"] == "split_col"
 
+
+def test_build_automl_tabular_pipeline_specialized_objectives():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        optimization_objective="maximize-precision-at-recall",
+        optimization_objective_recall_value=0.95,
+    )
+
+    template_path, parameter_values = build_automl_tabular_pipeline(config)
+    assert isinstance(template_path, str)
+    assert isinstance(parameter_values, dict)
+    assert parameter_values["optimization_objective"] == "maximize-precision-at-recall"
+    assert parameter_values["optimization_objective_recall_value"] == 0.95
+
+

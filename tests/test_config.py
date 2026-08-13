@@ -74,3 +74,17 @@ def test_tabular_pipeline_config_bigquery_and_split_key():
     assert config.bigquery_table_path == "bq://proj.ds.tbl"
     assert config.predefined_split_key == "split_flag"
 
+
+def test_tabular_pipeline_config_specialized_objectives():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        optimization_objective="maximize-precision-at-recall",
+        optimization_objective_recall_value=0.95,
+    )
+
+    assert config.optimization_objective == "maximize-precision-at-recall"
+    assert config.optimization_objective_recall_value == 0.95
+    assert config.optimization_objective_precision_value is None
+
+
