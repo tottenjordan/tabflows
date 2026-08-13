@@ -13,6 +13,7 @@ from tabflows.experiments import (
     get_model_evaluation_metrics,
     get_model_feature_attributions,
     list_experiment_runs,
+    log_experiment_run,
 )
 from tabflows.inference import (
     deploy_model_to_endpoint,
@@ -286,6 +287,69 @@ def list_experiments(
 
     click.echo(f"\nFound {len(df)} experiment run(s):")
     click.echo(df.to_string())
+
+
+@main.command()
+@click.option("--run-name", required=True, help="Experiment run name")
+@click.option("--model-resource-name", default=None, help="Model resource name or ID")
+@click.option("--pipeline-job-id", default=None, help="Pipeline Job ID or resource name")
+@click.option("--params-json", default=None, help="JSON string of parameter key-value pairs")
+@click.option("--metrics-json", default=None, help="JSON string of metric key-value pairs")
+@click.option(
+    "--experiment", default=None, help="Experiment name (defaults to .env/EXPERIMENT_NAME)"
+)
+@click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
+@click.option("--location", default=None, help="GCP Region (defaults to .env)")
+def log_experiment(
+    run_name: str,
+    model_resource_name: str | None,
+    pipeline_job_id: str | None,
+    params_json: str | None,
+    metrics_json: str | None,
+    experiment: str | None,
+    project: str | None,
+    location: str | None,
+) -> None:
+    """Log an experiment run with parameters, metrics, model, and pipeline job info."""
+    config = _get_config(project, location, None)
+    if experiment:
+        config.experiment_name = experiment
+
+    params: dict[str, Any] | None = None
+    if params_json:
+        try:
+            parsed = json.loads(params_json)
+            if not isinstance(parsed, dict):
+                click.echo("Error: --params-json must be a JSON object.")
+                raise click.Abort()
+            params = parsed
+        except json.JSONDecodeError as e:
+            click.echo(f"Error parsing --params-json JSON: {e}")
+            raise click.Abort() from e
+
+    metrics: dict[str, Any] | None = None
+    if metrics_json:
+        try:
+            parsed = json.loads(metrics_json)
+            if not isinstance(parsed, dict):
+                click.echo("Error: --metrics-json must be a JSON object.")
+                raise click.Abort()
+            metrics = parsed
+        except json.JSONDecodeError as e:
+            click.echo(f"Error parsing --metrics-json JSON: {e}")
+            raise click.Abort() from e
+
+    log_experiment_run(
+        run_name=run_name,
+        params=params,
+        metrics=metrics,
+        model=model_resource_name,
+        pipeline_job=pipeline_job_id,
+        config=config,
+    )
+    click.echo(
+        f"Successfully logged experiment run '{run_name}' to experiment '{config.experiment_name}'."
+    )
 
 
 @main.command()

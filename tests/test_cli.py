@@ -172,3 +172,108 @@ def test_generate_fte_config_invalid_column_type():
 
     assert result.exit_code != 0
     assert "Error generating FTE transformations:" in result.output
+
+
+def test_log_experiment_success():
+    runner = CliRunner()
+    with patch("tabflows.cli.log_experiment_run") as mock_log:
+        result = runner.invoke(
+            main,
+            [
+                "log-experiment",
+                "--run-name",
+                "test-run-1",
+                "--model-resource-name",
+                "projects/123/locations/us-central1/models/456",
+                "--pipeline-job-id",
+                "job-789",
+                "--params-json",
+                '{"lr": 0.01, "optimizer": "adam"}',
+                "--metrics-json",
+                '{"accuracy": 0.95}',
+                "--project",
+                "my-project",
+                "--location",
+                "us-central1",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Successfully logged experiment run 'test-run-1'" in result.output
+        mock_log.assert_called_once()
+        _, kwargs = mock_log.call_args
+        assert kwargs["run_name"] == "test-run-1"
+        assert kwargs["model"] == "projects/123/locations/us-central1/models/456"
+        assert kwargs["pipeline_job"] == "job-789"
+        assert kwargs["params"] == {"lr": 0.01, "optimizer": "adam"}
+        assert kwargs["metrics"] == {"accuracy": 0.95}
+        assert kwargs["config"].project_id == "my-project"
+        assert kwargs["config"].location == "us-central1"
+
+
+def test_log_experiment_invalid_params_json():
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "log-experiment",
+            "--run-name",
+            "test-run-1",
+            "--params-json",
+            "invalid json",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Error parsing --params-json JSON:" in result.output
+
+
+def test_log_experiment_non_dict_params_json():
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "log-experiment",
+            "--run-name",
+            "test-run-1",
+            "--params-json",
+            '["lr", 0.01]',
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Error: --params-json must be a JSON object." in result.output
+
+
+def test_log_experiment_invalid_metrics_json():
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "log-experiment",
+            "--run-name",
+            "test-run-1",
+            "--metrics-json",
+            "invalid json",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Error parsing --metrics-json JSON:" in result.output
+
+
+def test_log_experiment_non_dict_metrics_json():
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "log-experiment",
+            "--run-name",
+            "test-run-1",
+            "--metrics-json",
+            "[1, 2, 3]",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Error: --metrics-json must be a JSON object." in result.output
