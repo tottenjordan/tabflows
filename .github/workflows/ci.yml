@@ -1,0 +1,43 @@
+name: CI Workflow
+
+on:
+  push:
+    branches:
+      - main
+      - 'feat/*'
+  pull_request:
+    branches:
+      - main
+      - 'feat/*'
+
+jobs:
+  ci:
+    name: Build, Lint, Test & Compile Pipelines
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup uv and Python
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run Ruff linter
+        run: uv run ruff check .
+
+      - name: Run Ty type checker
+        run: uv run ty check src/
+
+      - name: Run Pytest suite
+        run: uv run pytest
+
+      - name: Build package
+        run: uv build
+
+      - name: Compile CI pipelines
+        run: uv run python3 scripts/compile_pipelines_ci.py
