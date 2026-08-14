@@ -1,19 +1,28 @@
 name: CI Workflow
 
-on:
+"on":
   push:
     branches:
-      - main
+      - 'main'
       - 'feat/*'
+      - 'feat/**'
   pull_request:
     branches:
-      - main
+      - 'main'
       - 'feat/*'
+      - 'feat/**'
+
+permissions:
+  contents: read
 
 jobs:
   ci:
     name: Build, Lint, Test & Compile Pipelines
     runs-on: ubuntu-latest
+    env:
+      GCP_PROJECT: "ci-test-project"
+      GCP_LOCATION: "us-central1"
+      GCP_BUCKET_URI: "gs://ci-test-bucket"
 
     steps:
       - name: Checkout repository
@@ -25,7 +34,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --dev
 
       - name: Run Ruff linter
         run: uv run ruff check .
