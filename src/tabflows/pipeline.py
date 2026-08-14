@@ -259,6 +259,7 @@ def create_tabular_pipeline_job(
     template_path, parameter_values = build_automl_tabular_pipeline(config)
     job = aiplatform.PipelineJob(
         display_name=job_id,
+        project=config.project_id,
         location=config.location,
         template_path=template_path,
         job_id=job_id,
@@ -298,6 +299,7 @@ def run_skip_architecture_search_pipeline(
     )
     job = aiplatform.PipelineJob(
         display_name=job_id,
+        project=config.project_id,
         location=config.location,
         template_path=template_path,
         job_id=job_id,

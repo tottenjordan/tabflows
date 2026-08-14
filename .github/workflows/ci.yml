@@ -17,6 +17,8 @@ permissions:
 
 env:
   GCP_PROJECT: "ci-test-project"
+  GOOGLE_CLOUD_PROJECT: "ci-test-project"
+  CLOUD_ML_PROJECT_ID: "ci-test-project"
   GCP_LOCATION: "us-central1"
   GCP_BUCKET_URI: "gs://ci-test-bucket"
   PYTHONUNBUFFERED: "1"

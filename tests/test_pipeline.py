@@ -287,3 +287,18 @@ def test_build_automl_tabular_pipeline_specialized_objectives():
     assert parameter_values["optimization_objective_recall_value"] == 0.95
 
 
+def test_create_pipeline_job_explicit_project_param(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GOOGLE_APPLICATION_CREDENTIALS", raising=False)
+    monkeypatch.delenv("GCP_PROJECT", raising=False)
+    monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
+
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+    )
+
+    job = create_tabular_pipeline_job(config, job_id="test-job-explicit", log_experiment=False)
+    assert job.project == config.project_id
+
+
+
