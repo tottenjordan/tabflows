@@ -11,6 +11,9 @@ This note captures model serving patterns, online prediction payload specs, and 
   - `predict_online(endpoint, instances)`: Sends synchronous JSON feature requests.
   - `cleanup_endpoint(endpoint)`: Undeploys all deployed models and deletes the endpoint resource to avoid unnecessary serving charges.
 - **Traffic Splitting / Canary Deployments**: Supports Champion vs. Challenger deployments by splitting endpoint traffic between multiple deployed model revisions.
+- **Benchmarking & Live Deployment Script**:
+  - `scripts/benchmark_bakeoff_deployment.py`: Deploys Bake-off teacher & distilled student models with 90/10 Champion-Challenger traffic split, measures p50/p90/p95 latency and QPS, and cleans up endpoint.
+  - Tutorial Notebook: `notebooks/09_bakeoff_live_deployment_and_benchmarking.ipynb`.
 - **CLI Commands**:
   - `uv run tabflows deploy-endpoint --model <MODEL_ID_OR_URI>`
   - `uv run tabflows predict-online --endpoint <ENDPOINT_ID> --json-instance '{"age": "30", "job": "blue-collar"}'`

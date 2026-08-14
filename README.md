@@ -66,6 +66,9 @@ The following publication-quality infographics and multi-metric benchmark charts
 
 ```text
 tabflows/
+├── .github/
+│   └── workflows/
+│       └── ci.yml             # GitHub Actions CI/CD workflow (lint, type check, test, build, compile)
 ├── src/tabflows/              # Tabflows Python library
 │   ├── config.py              # TabularPipelineConfig schema & .env settings loader
 │   ├── pipeline.py            # AutoML Tabular pipeline builders, FTE, & GCS helpers
@@ -73,8 +76,10 @@ tabflows/
 │   ├── experiments.py         # Model evaluation & Vertex AI Experiment tracking
 │   ├── cli.py                 # Click CLI interface (setup / run-automl / inference / fte)
 │   └── __init__.py            # Library exports
-├── scripts/                   # Helper scripts
-│   └── setup_gcp_resources.py # Standalone GCP bucket & asset setup script
+├── scripts/                   # Helper & automation scripts
+│   ├── benchmark_bakeoff_deployment.py # Bake-off live deployment & latency benchmarking
+│   ├── compile_pipelines_ci.py        # CI pipeline compilation & verification script
+│   └── setup_gcp_resources.py         # Standalone GCP bucket & asset setup script
 ├── notebooks/                 # Jupyter notebook tutorials
 │   ├── 01_automl_tabular_classification.ipynb
 │   ├── 02_automl_tabular_inference.ipynb
@@ -83,7 +88,8 @@ tabflows/
 │   ├── 05_feature_transform_engine.ipynb
 │   ├── 06_bigquery_and_split_strategies.ipynb
 │   ├── 07_champion_challenger_traffic_split.ipynb
-│   └── 08_optimization_objectives_and_targets.ipynb
+│   ├── 08_optimization_objectives_and_targets.ipynb
+│   └── 09_bakeoff_live_deployment_and_benchmarking.ipynb
 ├── tests/                     # Unit tests
 │   ├── test_cli.py            # CLI integration tests
 │   ├── test_config.py         # Config schema & .env tests
@@ -142,6 +148,23 @@ tabflows/
    PREDICTION_TYPE=classification
    OPTIMIZATION_OBJECTIVE=minimize-log-loss
    SERVING_MACHINE_TYPE=n1-standard-4
+   ```
+
+### Packaging & Distribution
+
+`tabflows` uses standard Python packaging (`hatchling` build backend managed via `uv`).
+
+1. **Build distribution packages**:
+   ```bash
+   uv build
+   ```
+   Generates distribution artifacts in the `dist/` directory:
+   - `dist/tabflows-0.1.0-py3-none-any.whl` (Wheel)
+   - `dist/tabflows-0.1.0.tar.gz` (Source distribution)
+
+2. **Install wheel package**:
+   ```bash
+   pip install dist/tabflows-*.whl
    ```
 
 ---
@@ -336,6 +359,9 @@ uv run jupyter notebook notebooks/07_champion_challenger_traffic_split.ipynb
 
 # 08. Specialized Optimization Objectives & Target Tuning Notebook
 uv run jupyter notebook notebooks/08_optimization_objectives_and_targets.ipynb
+
+# 09. Bake-off Live Deployment & Latency Benchmarking Notebook
+uv run jupyter notebook notebooks/09_bakeoff_live_deployment_and_benchmarking.ipynb
 ```
 
 #### Notebook Summaries
@@ -347,6 +373,39 @@ uv run jupyter notebook notebooks/08_optimization_objectives_and_targets.ipynb
 - **Notebook 06 (`06_bigquery_and_split_strategies.ipynb`)**: Direct BigQuery table ingestion (`bigquery_table_path`, `bq://project.dataset.table`), predefined data splitting (`predefined_split_key`) for chronological/custom dataset partitioning, and pipeline experiment tracking.
 - **Notebook 07 (`07_champion_challenger_traffic_split.ipynb`)**: Champion vs. Challenger canary model deployments, endpoint multi-model traffic splitting (`traffic_split={"0": 90, "1": 10}`), online predictions, and endpoint resource cleanup.
 - **Notebook 08 (`08_optimization_objectives_and_targets.ipynb`)**: Specialized binary classification optimization objectives (`maximize-precision-at-recall`, `maximize-recall-at-precision`) with precision/recall target constraints (`optimization_objective_recall_value`, `optimization_objective_precision_value`) for fraud detection and marketing conversion use cases.
+- **Notebook 09 (`09_bakeoff_live_deployment_and_benchmarking.ipynb`)**: Live endpoint deployment of Bake-off teacher and distilled student models, Champion vs. Challenger traffic splitting (90/10), online prediction latency benchmarking (p50, p90, p95 response times, QPS throughput), and automatic endpoint cleanup.
+
+### 5. Automation & Benchmark Scripts
+
+`tabflows` includes executable Python scripts in `scripts/` for environment provisioning, CI pipeline validation, and live deployment performance benchmarking:
+
+- **Setup GCP Resources (`scripts/setup_gcp_resources.py`)**: Provisions GCP Cloud Storage bucket assets and uploads initial transformation configurations.
+  ```bash
+  uv run python scripts/setup_gcp_resources.py
+  ```
+
+- **CI Pipeline Compilation (`scripts/compile_pipelines_ci.py`)**: Compiles and validates Vertex AI AutoML Tabular pipeline templates (`create_tabular_pipeline_job` and `run_skip_architecture_search_pipeline`) to guarantee compilation integrity without requiring active GCP cloud credentials.
+  ```bash
+  uv run python scripts/compile_pipelines_ci.py
+  ```
+
+- **Bake-off Live Deployment Benchmarking (`scripts/benchmark_bakeoff_deployment.py`)**: Deploys Bake-off baseline teacher and distilled student models to a Vertex AI Endpoint with a 90/10 Champion-Challenger traffic split, executes synchronous online prediction requests, computes response latency percentiles (p50, p90, p95) and QPS throughput, and cleans up endpoint resources.
+  ```bash
+  uv run python scripts/benchmark_bakeoff_deployment.py --num-requests 20
+  ```
+
+---
+
+## CI/CD Workflow
+
+Continuous Integration is managed via GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). On every `push` and `pull_request` to `main` and `feat/*` branches, the workflow executes the following pipeline:
+
+1. **Environment Setup**: Checks out the repository (`actions/checkout@v4`) and sets up `uv` with Python `3.11` (`astral-sh/setup-uv@v5`).
+2. **Dependency Sync**: Runs `uv sync` to install all project dependencies.
+3. **Linting & Type Checking**: Runs `uv run ruff check .` and `uv run ty check src/`.
+4. **Unit Testing**: Runs `uv run pytest` across the test suite.
+5. **Package Build**: Executes `uv build` to produce wheel and source distributions.
+6. **Pipeline Verification**: Runs `uv run python3 scripts/compile_pipelines_ci.py` to verify pipeline template compilation.
 
 ---
 
