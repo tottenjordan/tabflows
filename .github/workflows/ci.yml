@@ -15,14 +15,16 @@ name: CI Workflow
 permissions:
   contents: read
 
+env:
+  GCP_PROJECT: "ci-test-project"
+  GCP_LOCATION: "us-central1"
+  GCP_BUCKET_URI: "gs://ci-test-bucket"
+  PYTHONUNBUFFERED: "1"
+
 jobs:
   ci:
     name: Build, Lint, Test & Compile Pipelines
     runs-on: ubuntu-latest
-    env:
-      GCP_PROJECT: "ci-test-project"
-      GCP_LOCATION: "us-central1"
-      GCP_BUCKET_URI: "gs://ci-test-bucket"
 
     steps:
       - name: Checkout repository
@@ -32,9 +34,10 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.11"
+          enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --dev
+        run: uv sync --frozen --dev
 
       - name: Run Ruff linter
         run: uv run ruff check .

@@ -1,5 +1,6 @@
 """Unit test for verifying compile_pipelines_ci.py CI script execution."""
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -24,6 +25,28 @@ def test_compile_pipelines_ci_script_execution():
     result = subprocess.run(
         [sys.executable, str(script_path)],
         cwd=project_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, f"compile_pipelines_ci.py failed with stderr:\n{result.stderr}"
+    expected_msg = (
+        "SUCCESS: All AutoML Tabular pipeline templates compiled and verified successfully."
+    )
+    assert expected_msg in result.stdout
+
+
+def test_compile_pipelines_ci_with_unbuffered_env():
+    """Test executing scripts/compile_pipelines_ci.py with PYTHONUNBUFFERED=1."""
+    script_path = project_root / "scripts" / "compile_pipelines_ci.py"
+    env = os.environ.copy()
+    env["PYTHONUNBUFFERED"] = "1"
+
+    result = subprocess.run(
+        [sys.executable, str(script_path)],
+        cwd=project_root,
+        env=env,
         capture_output=True,
         text=True,
         check=False,
@@ -62,18 +85,24 @@ def test_github_ci_yaml_structure():
     assert "permissions" in data
     assert data["permissions"].get("contents") == "read"
 
-    # Validate jobs and env defaults
+    # Validate top-level env defaults
+    assert "env" in data
+    assert data["env"].get("GCP_PROJECT") == "ci-test-project"
+    assert data["env"].get("GCP_LOCATION") == "us-central1"
+    assert data["env"].get("GCP_BUCKET_URI") == "gs://ci-test-bucket"
+    assert data["env"].get("PYTHONUNBUFFERED") == "1"
+
+    # Validate jobs
     assert "jobs" in data and "ci" in data["jobs"]
     ci_job = data["jobs"]["ci"]
 
-    assert "env" in ci_job
-    assert ci_job["env"].get("GCP_PROJECT") == "ci-test-project"
-    assert ci_job["env"].get("GCP_LOCATION") == "us-central1"
-    assert ci_job["env"].get("GCP_BUCKET_URI") == "gs://ci-test-bucket"
-
-    # Validate steps (specifically uv sync --dev)
+    # Validate steps (specifically setup-uv and uv sync --frozen --dev)
     assert "steps" in ci_job
     steps = ci_job["steps"]
+    setup_uv_step = next((s for s in steps if s.get("name") == "Setup uv and Python"), None)
+    assert setup_uv_step is not None, "Setup uv step not found"
+    assert setup_uv_step.get("with", {}).get("enable-cache") is True
+
     sync_step = next((s for s in steps if s.get("name") == "Install dependencies"), None)
     assert sync_step is not None, "Install dependencies step not found"
-    assert sync_step.get("run") == "uv sync --dev"
+    assert sync_step.get("run") == "uv sync --frozen --dev"
