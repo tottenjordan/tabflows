@@ -1,10 +1,30 @@
 [project]
 name = "tabflows"
 version = "0.1.0"
-description = "Add your description here"
+description = "AutoML Tabular classification workflows on Google Cloud Vertex AI Pipelines"
 readme = "README.md"
+license = { text = "Apache-2.0" }
 authors = [
-    { name = "Jordan", email = "jordantotten@google.com" }
+    { name = "Jordan Totten", email = "jordantotten@google.com" }
+]
+keywords = [
+    "automl",
+    "google-cloud",
+    "kfp",
+    "machine-learning",
+    "pipelines",
+    "tabular",
+    "vertex-ai",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 requires-python = ">=3.11"
 dependencies = [
@@ -18,6 +38,11 @@ dependencies = [
     "pydantic-settings>=2.15.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/tottenjordan/tabflows"
+Repository = "https://github.com/tottenjordan/tabflows"
+Documentation = "https://github.com/tottenjordan/tabflows#readme"
+
 [project.scripts]
 tabflows = "tabflows.cli:main"
 
@@ -26,8 +51,8 @@ url = "https://pypi.org/simple"
 default = true
 
 [build-system]
-requires = ["uv_build>=0.9.14,<0.10.0"]
-build-backend = "uv_build"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
