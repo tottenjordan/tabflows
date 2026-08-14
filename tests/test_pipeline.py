@@ -301,4 +301,26 @@ def test_create_pipeline_job_explicit_project_param(monkeypatch: pytest.MonkeyPa
     assert job.project == config.project_id
 
 
+def test_create_pipeline_job_unauthenticated_anonymous_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from google.auth.credentials import AnonymousCredentials
+    from google.auth.exceptions import DefaultCredentialsError
+
+    monkeypatch.delenv("GOOGLE_APPLICATION_CREDENTIALS", raising=False)
+    monkeypatch.delenv("GCP_PROJECT", raising=False)
+    monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
+
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+    )
+
+    with patch("google.auth.default", side_effect=DefaultCredentialsError("No credentials")):
+        job = create_tabular_pipeline_job(config, log_experiment=False)
+        assert job.project == config.project_id
+        assert isinstance(job.credentials, AnonymousCredentials)
+
+
+
 

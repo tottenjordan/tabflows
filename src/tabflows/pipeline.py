@@ -4,6 +4,8 @@ import json
 import logging
 from typing import Any
 
+import google.auth
+from google.auth.credentials import AnonymousCredentials
 from google.cloud import aiplatform, storage
 from google_cloud_pipeline_components.v1.automl.tabular import utils as automl_tabular_utils
 
@@ -11,6 +13,17 @@ from tabflows.config import TabularPipelineConfig
 from tabflows.experiments import log_experiment_run
 
 logger = logging.getLogger(__name__)
+
+
+def _get_credentials_or_anonymous(credentials: Any | None = None) -> Any:
+    if credentials is not None:
+        return credentials
+    try:
+        creds, _ = google.auth.default()
+        return creds
+    except Exception:
+        return AnonymousCredentials()
+
 
 
 def generate_auto_transformation(column_names: list[str]) -> list[dict[str, Any]]:
@@ -254,6 +267,7 @@ def create_tabular_pipeline_job(
     config: TabularPipelineConfig,
     job_id: str = "automl-tabular-full-search",
     log_experiment: bool = True,
+    credentials: Any | None = None,
 ) -> aiplatform.PipelineJob:
     """Create a Vertex AI PipelineJob for Stage 1 AutoML Tabular (Full Search)."""
     template_path, parameter_values = build_automl_tabular_pipeline(config)
@@ -266,6 +280,7 @@ def create_tabular_pipeline_job(
         pipeline_root=config.root_dir,
         parameter_values=parameter_values,
         enable_caching=False,
+        credentials=_get_credentials_or_anonymous(credentials),
     )
     if log_experiment:
         try:
@@ -284,6 +299,7 @@ def run_skip_architecture_search_pipeline(
     tuning_result_artifact_uri: str | None = None,
     job_id: str = "automl-tabular-skip-search",
     log_experiment: bool = True,
+    credentials: Any | None = None,
 ) -> aiplatform.PipelineJob:
     """Create a Vertex AI PipelineJob for Stage 2 AutoML Tabular (Skip Architecture Search)."""
     tuning_uri = tuning_result_artifact_uri or config.tuning_result_output
@@ -306,6 +322,7 @@ def run_skip_architecture_search_pipeline(
         pipeline_root=config.root_dir,
         parameter_values=parameter_values,
         enable_caching=False,
+        credentials=_get_credentials_or_anonymous(credentials),
     )
     if log_experiment:
         try:
