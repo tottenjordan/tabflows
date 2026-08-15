@@ -23,6 +23,9 @@ def test_tabular_pipeline_config_defaults():
         == "gs://my-test-bucket/automl_tabular_pipeline/transform_config_unique.json"
     )
     assert len(config.features) == 16
+    assert config.stratified_split_key is None
+    assert config.skip_evaluation is False
+    assert config.export_additional_model_without_custom_ops is False
 
 
 def test_tabular_pipeline_config_env_vars(monkeypatch: pytest.MonkeyPatch):
@@ -86,5 +89,22 @@ def test_tabular_pipeline_config_specialized_objectives():
     assert config.optimization_objective == "maximize-precision-at-recall"
     assert config.optimization_objective_recall_value == 0.95
     assert config.optimization_objective_precision_value is None
+
+
+def test_tabular_pipeline_config_stratified_split_and_skip_eval():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        stratified_split_key="strata_col",
+        skip_evaluation=True,
+        export_additional_model_without_custom_ops=True,
+        weight_column="sample_w",
+    )
+
+    assert config.stratified_split_key == "strata_col"
+    assert config.skip_evaluation is True
+    assert config.export_additional_model_without_custom_ops is True
+    assert config.weight_column == "sample_w"
+
 
 

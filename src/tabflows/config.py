@@ -91,6 +91,9 @@ class TabularPipelineConfig(BaseSettings):
         default=1000, description="Training budget in milli node hours"
     )
     run_evaluation: bool = Field(default=True, description="Whether to run evaluation component")
+    skip_evaluation: bool = Field(
+        default=False, description="Whether to bypass evaluation component"
+    )
     run_distillation: bool = Field(default=False, description="Whether to run model distillation")
     run_architecture_search: bool = Field(
         default=True,

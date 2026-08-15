@@ -7,7 +7,11 @@ import pytest
 from tabflows.config import TabularPipelineConfig
 from tabflows.pipeline import (
     build_automl_tabular_pipeline,
+    build_distill_skip_evaluation_pipeline,
     build_skip_architecture_search_pipeline,
+    build_skip_evaluation_pipeline,
+    create_distill_skip_evaluation_pipeline_job,
+    create_skip_evaluation_pipeline_job,
     create_tabular_pipeline_job,
     generate_auto_transformation,
     generate_fte_transformations,
@@ -320,6 +324,95 @@ def test_create_pipeline_job_unauthenticated_anonymous_fallback(
         job = create_tabular_pipeline_job(config, log_experiment=False)
         assert job.project == config.project_id
         assert isinstance(job.credentials, AnonymousCredentials)
+
+
+def test_build_skip_evaluation_pipeline():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        stratified_split_key="strata_col",
+        weight_column="weight_col",
+        export_additional_model_without_custom_ops=True,
+    )
+
+    template_path, parameter_values = build_skip_evaluation_pipeline(config)
+    assert isinstance(template_path, str)
+    assert isinstance(parameter_values, dict)
+    assert parameter_values["project"] == "test-project"
+    assert parameter_values["target_column_name"] == "deposit"
+    assert parameter_values["weight_column_name"] == "weight_col"
+    assert parameter_values["export_additional_model_without_custom_ops"] is True
+    assert "strata_col" in parameter_values["split_spec"]
+
+
+def test_build_distill_skip_evaluation_pipeline():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        stratified_split_key="strata_col",
+        weight_column="weight_col",
+        export_additional_model_without_custom_ops=True,
+    )
+
+    template_path, parameter_values = build_distill_skip_evaluation_pipeline(config)
+    assert isinstance(template_path, str)
+    assert isinstance(parameter_values, dict)
+    assert parameter_values["project"] == "test-project"
+    assert parameter_values["run_distillation"] is True
+    assert parameter_values["weight_column_name"] == "weight_col"
+    assert parameter_values["export_additional_model_without_custom_ops"] is True
+    assert "strata_col" in parameter_values["split_spec"]
+
+
+def test_create_skip_evaluation_pipeline_jobs():
+    from google.cloud import aiplatform
+
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+    )
+
+    with patch("tabflows.pipeline.log_experiment_run") as mock_log_exp:
+        job1 = create_skip_evaluation_pipeline_job(
+            config, job_id="test-skip-eval-job", log_experiment=True
+        )
+        assert isinstance(job1, aiplatform.PipelineJob)
+        mock_log_exp.assert_called_once_with(
+            run_name="test-skip-eval-job",
+            pipeline_job=job1,
+            config=config,
+        )
+
+    with patch("tabflows.pipeline.log_experiment_run") as mock_log_exp:
+        job2 = create_distill_skip_evaluation_pipeline_job(
+            config, job_id="test-distill-skip-eval-job", log_experiment=False
+        )
+        assert isinstance(job2, aiplatform.PipelineJob)
+        mock_log_exp.assert_not_called()
+
+
+def test_pipeline_builders_mapping_and_skip_evaluation():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        stratified_split_key="strata_col",
+        weight_column="weight_col",
+        export_additional_model_without_custom_ops=True,
+        skip_evaluation=True,
+    )
+
+    _, params1 = build_automl_tabular_pipeline(config)
+    assert params1["stratified_split_key"] == "strata_col"
+    assert params1["weight_column"] == "weight_col"
+    assert params1["export_additional_model_without_custom_ops"] is True
+    assert params1.get("run_evaluation") is not True
+
+    _, params2 = build_skip_architecture_search_pipeline(config, "gs://test-bucket/tuning")
+    assert params2["stratified_split_key"] == "strata_col"
+    assert params2["weight_column"] == "weight_col"
+    assert params2["export_additional_model_without_custom_ops"] is True
+    assert params2.get("run_evaluation") is not True
+
 
 
 

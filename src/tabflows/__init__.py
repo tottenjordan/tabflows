@@ -18,7 +18,11 @@ from tabflows.inference import (
 )
 from tabflows.pipeline import (
     build_automl_tabular_pipeline,
+    build_distill_skip_evaluation_pipeline,
     build_skip_architecture_search_pipeline,
+    build_skip_evaluation_pipeline,
+    create_distill_skip_evaluation_pipeline_job,
+    create_skip_evaluation_pipeline_job,
     create_tabular_pipeline_job,
     generate_auto_transformation,
     generate_fte_transformations,
@@ -33,8 +37,12 @@ __version__ = "0.1.0"
 __all__ = [
     "TabularPipelineConfig",
     "build_automl_tabular_pipeline",
+    "build_distill_skip_evaluation_pipeline",
     "build_skip_architecture_search_pipeline",
+    "build_skip_evaluation_pipeline",
     "cleanup_endpoint",
+    "create_distill_skip_evaluation_pipeline_job",
+    "create_skip_evaluation_pipeline_job",
     "create_tabular_pipeline_job",
     "deploy_model_to_endpoint",
     "generate_auto_transformation",
