@@ -27,7 +27,9 @@ from tabflows.inference import (
 )
 from tabflows.pipeline import (
     build_automl_tabular_pipeline,
+    build_distill_skip_evaluation_pipeline,
     build_skip_architecture_search_pipeline,
+    build_skip_evaluation_pipeline,
     generate_fte_transformations,
     setup_gcp_resources,
     write_to_gcs,
@@ -73,21 +75,7 @@ def setup(project: str | None, location: str | None, bucket: str | None) -> None
     click.echo("Setup completed successfully.")
 
 
-@main.command()
-@click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
-@click.option("--location", default=None, help="GCP Region (defaults to .env)")
-@click.option("--bucket", default=None, help="GCS Bucket URI (defaults to .env)")
-@click.option("--job-id", default=None, help="Pipeline Job ID")
-@click.option("--compile-only", is_flag=True, help="Only compile template without submitting job")
-@click.option(
-    "--async-mode",
-    is_flag=True,
-    help="Submit job asynchronously to Vertex AI without blocking",
-)
-@click.option(
-    "--distill / --no-distill", default=False, help="Enable or disable model distillation"
-)
-def run_automl(
+def _run_automl_impl(
     project: str | None,
     location: str | None,
     bucket: str | None,
@@ -95,10 +83,21 @@ def run_automl(
     compile_only: bool,
     async_mode: bool,
     distill: bool,
+    stratified_split_key: str | None = None,
+    weight_column: str | None = None,
+    skip_evaluation: bool = False,
+    export_without_custom_ops: bool = False,
 ) -> None:
-    """Build and submit standard AutoML Tabular pipeline."""
     config = _get_config(project, location, bucket)
     config.run_distillation = distill
+    if stratified_split_key:
+        config.stratified_split_key = stratified_split_key
+    if weight_column:
+        config.weight_column = weight_column
+    if skip_evaluation:
+        config.skip_evaluation = skip_evaluation
+    if export_without_custom_ops:
+        config.export_additional_model_without_custom_ops = export_without_custom_ops
 
     if not config.project_id or not config.bucket_uri:
         click.echo("Error: Both project_id and bucket_uri must be provided or set in .env")
@@ -136,6 +135,305 @@ def run_automl(
     else:
         click.echo(f"Submitting pipeline job '{job_id}' to Vertex AI...")
         job.run()
+
+
+@main.command()
+@click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
+@click.option("--location", default=None, help="GCP Region (defaults to .env)")
+@click.option("--bucket", default=None, help="GCS Bucket URI (defaults to .env)")
+@click.option("--job-id", default=None, help="Pipeline Job ID")
+@click.option("--compile-only", is_flag=True, help="Only compile template without submitting job")
+@click.option(
+    "--async-mode",
+    is_flag=True,
+    help="Submit job asynchronously to Vertex AI without blocking",
+)
+@click.option(
+    "--distill / --no-distill", default=False, help="Enable or disable model distillation"
+)
+@click.option("--stratified-split-key", default=None, help="Stratified split column key")
+@click.option("--weight-column", default=None, help="Sample weight column name")
+@click.option("--skip-evaluation", is_flag=True, default=False, help="Bypass evaluation component")
+@click.option(
+    "--export-without-custom-ops",
+    is_flag=True,
+    default=False,
+    help="Export additional model without custom TF ops",
+)
+def run_automl(
+    project: str | None,
+    location: str | None,
+    bucket: str | None,
+    job_id: str | None,
+    compile_only: bool,
+    async_mode: bool,
+    distill: bool,
+    stratified_split_key: str | None,
+    weight_column: str | None,
+    skip_evaluation: bool,
+    export_without_custom_ops: bool,
+) -> None:
+    """Build and submit standard AutoML Tabular pipeline."""
+    _run_automl_impl(
+        project=project,
+        location=location,
+        bucket=bucket,
+        job_id=job_id,
+        compile_only=compile_only,
+        async_mode=async_mode,
+        distill=distill,
+        stratified_split_key=stratified_split_key,
+        weight_column=weight_column,
+        skip_evaluation=skip_evaluation,
+        export_without_custom_ops=export_without_custom_ops,
+    )
+
+
+@main.command()
+@click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
+@click.option("--location", default=None, help="GCP Region (defaults to .env)")
+@click.option("--bucket", default=None, help="GCS Bucket URI (defaults to .env)")
+@click.option("--job-id", default=None, help="Pipeline Job ID")
+@click.option("--compile-only", is_flag=True, help="Only compile template without submitting job")
+@click.option(
+    "--async-mode",
+    is_flag=True,
+    help="Submit job asynchronously to Vertex AI without blocking",
+)
+@click.option(
+    "--distill / --no-distill", default=False, help="Enable or disable model distillation"
+)
+@click.option("--stratified-split-key", default=None, help="Stratified split column key")
+@click.option("--weight-column", default=None, help="Sample weight column name")
+@click.option("--skip-evaluation", is_flag=True, default=False, help="Bypass evaluation component")
+@click.option(
+    "--export-without-custom-ops",
+    is_flag=True,
+    default=False,
+    help="Export additional model without custom TF ops",
+)
+def run_pipeline(
+    project: str | None,
+    location: str | None,
+    bucket: str | None,
+    job_id: str | None,
+    compile_only: bool,
+    async_mode: bool,
+    distill: bool,
+    stratified_split_key: str | None,
+    weight_column: str | None,
+    skip_evaluation: bool,
+    export_without_custom_ops: bool,
+) -> None:
+    """Build and submit AutoML Tabular pipeline."""
+    _run_automl_impl(
+        project=project,
+        location=location,
+        bucket=bucket,
+        job_id=job_id,
+        compile_only=compile_only,
+        async_mode=async_mode,
+        distill=distill,
+        stratified_split_key=stratified_split_key,
+        weight_column=weight_column,
+        skip_evaluation=skip_evaluation,
+        export_without_custom_ops=export_without_custom_ops,
+    )
+
+
+@main.command()
+@click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
+@click.option("--location", default=None, help="GCP Region (defaults to .env)")
+@click.option("--bucket", default=None, help="GCS Bucket URI (defaults to .env)")
+@click.option("--job-id", default=None, help="Pipeline Job ID")
+@click.option(
+    "--distill / --no-distill", default=False, help="Enable or disable model distillation"
+)
+@click.option("--stratified-split-key", default=None, help="Stratified split column key")
+@click.option("--weight-column", default=None, help="Sample weight column name")
+@click.option("--skip-evaluation", is_flag=True, default=False, help="Bypass evaluation component")
+@click.option(
+    "--export-without-custom-ops",
+    is_flag=True,
+    default=False,
+    help="Export additional model without custom TF ops",
+)
+def compile_pipeline(
+    project: str | None,
+    location: str | None,
+    bucket: str | None,
+    job_id: str | None,
+    distill: bool,
+    stratified_split_key: str | None,
+    weight_column: str | None,
+    skip_evaluation: bool,
+    export_without_custom_ops: bool,
+) -> None:
+    """Compile AutoML Tabular pipeline template without submitting job."""
+    _run_automl_impl(
+        project=project,
+        location=location,
+        bucket=bucket,
+        job_id=job_id,
+        compile_only=True,
+        async_mode=False,
+        distill=distill,
+        stratified_split_key=stratified_split_key,
+        weight_column=weight_column,
+        skip_evaluation=skip_evaluation,
+        export_without_custom_ops=export_without_custom_ops,
+    )
+
+
+def _run_skip_evaluation_impl(
+    project: str | None,
+    location: str | None,
+    bucket: str | None,
+    job_id: str | None,
+    compile_only: bool,
+    async_mode: bool,
+    distill: bool,
+    stratified_split_key: str | None = None,
+    weight_column: str | None = None,
+    export_without_custom_ops: bool = False,
+) -> None:
+    config = _get_config(project, location, bucket)
+    config.run_distillation = distill
+    config.skip_evaluation = True
+    if stratified_split_key:
+        config.stratified_split_key = stratified_split_key
+    if weight_column:
+        config.weight_column = weight_column
+    if export_without_custom_ops:
+        config.export_additional_model_without_custom_ops = export_without_custom_ops
+
+    if not config.project_id or not config.bucket_uri:
+        click.echo("Error: Both project_id and bucket_uri must be provided or set in .env")
+        raise click.Abort()
+
+    if not job_id:
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        job_id = f"automl-skip-eval-{timestamp}"
+
+    click.echo(f"Building Skip Evaluation Pipeline for project {config.project_id}...")
+    if config.run_distillation:
+        template_path, parameter_values = build_distill_skip_evaluation_pipeline(config)
+    else:
+        template_path, parameter_values = build_skip_evaluation_pipeline(config)
+    click.echo(f"Template compiled at: {template_path}")
+
+    if compile_only:
+        click.echo("Compile-only mode requested. Skipping job submission.")
+        return
+
+    aiplatform.init(project=config.project_id, location=config.location)
+    job = aiplatform.PipelineJob(
+        display_name=job_id,
+        location=config.location,
+        template_path=template_path,
+        job_id=job_id,
+        pipeline_root=config.root_dir,
+        parameter_values=parameter_values,
+        enable_caching=False,
+    )
+
+    if async_mode:
+        click.echo(f"Submitting pipeline job '{job_id}' asynchronously to Vertex AI...")
+        job.submit()
+        click.echo("Pipeline job submitted successfully.")
+    else:
+        click.echo(f"Submitting pipeline job '{job_id}' to Vertex AI...")
+        job.run()
+
+
+@main.command()
+@click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
+@click.option("--location", default=None, help="GCP Region (defaults to .env)")
+@click.option("--bucket", default=None, help="GCS Bucket URI (defaults to .env)")
+@click.option("--job-id", default=None, help="Pipeline Job ID")
+@click.option("--compile-only", is_flag=True, help="Only compile template without submitting job")
+@click.option(
+    "--async-mode",
+    is_flag=True,
+    help="Submit job asynchronously to Vertex AI without blocking",
+)
+@click.option(
+    "--distill / --no-distill", default=False, help="Enable or disable model distillation"
+)
+@click.option("--stratified-split-key", default=None, help="Stratified split column key")
+@click.option("--weight-column", default=None, help="Sample weight column name")
+@click.option(
+    "--export-without-custom-ops",
+    is_flag=True,
+    default=False,
+    help="Export additional model without custom TF ops",
+)
+def run_skip_evaluation(
+    project: str | None,
+    location: str | None,
+    bucket: str | None,
+    job_id: str | None,
+    compile_only: bool,
+    async_mode: bool,
+    distill: bool,
+    stratified_split_key: str | None,
+    weight_column: str | None,
+    export_without_custom_ops: bool,
+) -> None:
+    """Build and submit Skip Evaluation AutoML Tabular pipeline."""
+    _run_skip_evaluation_impl(
+        project,
+        location,
+        bucket,
+        job_id,
+        compile_only,
+        async_mode,
+        distill,
+        stratified_split_key,
+        weight_column,
+        export_without_custom_ops,
+    )
+
+
+@main.command()
+@click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
+@click.option("--location", default=None, help="GCP Region (defaults to .env)")
+@click.option("--bucket", default=None, help="GCS Bucket URI (defaults to .env)")
+@click.option("--job-id", default=None, help="Pipeline Job ID")
+@click.option(
+    "--distill / --no-distill", default=False, help="Enable or disable model distillation"
+)
+@click.option("--stratified-split-key", default=None, help="Stratified split column key")
+@click.option("--weight-column", default=None, help="Sample weight column name")
+@click.option(
+    "--export-without-custom-ops",
+    is_flag=True,
+    default=False,
+    help="Export additional model without custom TF ops",
+)
+def compile_skip_evaluation(
+    project: str | None,
+    location: str | None,
+    bucket: str | None,
+    job_id: str | None,
+    distill: bool,
+    stratified_split_key: str | None,
+    weight_column: str | None,
+    export_without_custom_ops: bool,
+) -> None:
+    """Compile Skip Evaluation AutoML Tabular pipeline template without submitting job."""
+    _run_skip_evaluation_impl(
+        project,
+        location,
+        bucket,
+        job_id,
+        compile_only=True,
+        async_mode=False,
+        distill=distill,
+        stratified_split_key=stratified_split_key,
+        weight_column=weight_column,
+        export_without_custom_ops=export_without_custom_ops,
+    )
 
 
 @main.command()

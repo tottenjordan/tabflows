@@ -343,3 +343,163 @@ def test_deploy_endpoint_non_dict_traffic_split_json():
     assert result.exit_code != 0
     assert "Error: --traffic-split-json must be a JSON object." in result.output
 
+
+def test_compile_pipeline_options():
+    runner = CliRunner()
+    with patch("tabflows.cli.build_automl_tabular_pipeline") as mock_build:
+        mock_build.return_value = ("gs://test-bucket/template.yaml", {"project": "test-proj"})
+
+        result = runner.invoke(
+            main,
+            [
+                "compile-pipeline",
+                "--project",
+                "test-proj",
+                "--bucket",
+                "gs://test-bucket",
+                "--stratified-split-key",
+                "target_class",
+                "--weight-column",
+                "sample_weight",
+                "--skip-evaluation",
+                "--export-without-custom-ops",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Template compiled at:" in result.output
+        mock_build.assert_called_once()
+        config_passed = mock_build.call_args[0][0]
+        assert config_passed.stratified_split_key == "target_class"
+        assert config_passed.weight_column == "sample_weight"
+        assert config_passed.skip_evaluation is True
+        assert config_passed.export_additional_model_without_custom_ops is True
+
+
+def test_run_pipeline_options():
+    runner = CliRunner()
+    with patch("tabflows.cli.build_automl_tabular_pipeline") as mock_build:
+        mock_build.return_value = ("gs://test-bucket/template.yaml", {"project": "test-proj"})
+
+        result = runner.invoke(
+            main,
+            [
+                "run-pipeline",
+                "--project",
+                "test-proj",
+                "--bucket",
+                "gs://test-bucket",
+                "--compile-only",
+                "--stratified-split-key",
+                "target_class",
+                "--weight-column",
+                "sample_weight",
+                "--skip-evaluation",
+                "--export-without-custom-ops",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Template compiled at:" in result.output
+        mock_build.assert_called_once()
+        config_passed = mock_build.call_args[0][0]
+        assert config_passed.stratified_split_key == "target_class"
+        assert config_passed.weight_column == "sample_weight"
+        assert config_passed.skip_evaluation is True
+        assert config_passed.export_additional_model_without_custom_ops is True
+
+
+def test_run_skip_evaluation():
+    runner = CliRunner()
+    with patch("tabflows.cli.build_skip_evaluation_pipeline") as mock_build:
+        mock_build.return_value = ("gs://test-bucket/skip_eval.yaml", {"project": "test-proj"})
+
+        result = runner.invoke(
+            main,
+            [
+                "run-skip-evaluation",
+                "--project",
+                "test-proj",
+                "--bucket",
+                "gs://test-bucket",
+                "--compile-only",
+                "--stratified-split-key",
+                "split_col",
+                "--weight-column",
+                "weight_col",
+                "--export-without-custom-ops",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Building Skip Evaluation Pipeline for project test-proj..." in result.output
+        assert "Template compiled at:" in result.output
+        mock_build.assert_called_once()
+        config_passed = mock_build.call_args[0][0]
+        assert config_passed.skip_evaluation is True
+        assert config_passed.stratified_split_key == "split_col"
+        assert config_passed.weight_column == "weight_col"
+        assert config_passed.export_additional_model_without_custom_ops is True
+
+
+def test_compile_skip_evaluation():
+    runner = CliRunner()
+    with patch("tabflows.cli.build_skip_evaluation_pipeline") as mock_build:
+        mock_build.return_value = ("gs://test-bucket/skip_eval.yaml", {"project": "test-proj"})
+
+        result = runner.invoke(
+            main,
+            [
+                "compile-skip-evaluation",
+                "--project",
+                "test-proj",
+                "--bucket",
+                "gs://test-bucket",
+                "--stratified-split-key",
+                "split_col",
+                "--weight-column",
+                "weight_col",
+                "--export-without-custom-ops",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Building Skip Evaluation Pipeline for project test-proj..." in result.output
+        assert "Template compiled at:" in result.output
+        mock_build.assert_called_once()
+        config_passed = mock_build.call_args[0][0]
+        assert config_passed.skip_evaluation is True
+        assert config_passed.stratified_split_key == "split_col"
+        assert config_passed.weight_column == "weight_col"
+        assert config_passed.export_additional_model_without_custom_ops is True
+
+
+def test_compile_skip_evaluation_distill():
+    runner = CliRunner()
+    with patch("tabflows.cli.build_distill_skip_evaluation_pipeline") as mock_build:
+        mock_build.return_value = (
+            "gs://test-bucket/distill_skip_eval.yaml",
+            {"project": "test-proj"},
+        )
+
+        result = runner.invoke(
+            main,
+            [
+                "compile-skip-evaluation",
+                "--project",
+                "test-proj",
+                "--bucket",
+                "gs://test-bucket",
+                "--distill",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "Building Skip Evaluation Pipeline for project test-proj..." in result.output
+        assert "Template compiled at:" in result.output
+        mock_build.assert_called_once()
+        config_passed = mock_build.call_args[0][0]
+        assert config_passed.skip_evaluation is True
+        assert config_passed.run_distillation is True
+
+
