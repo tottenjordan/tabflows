@@ -3,7 +3,7 @@
 This directory contains persistent notes on architecture, libraries, environment quirks, and non-obvious technical learnings accumulated across sessions.
 
 ## Topic Notes
-- [Tabular Workflows](tabular_workflows.md): Architecture, component task names, GCP v1 pipeline APIs, skip-architecture search, BigQuery table ingestion, predefined data split keys, precision/recall optimization objectives, and transformation configs.
+- [Tabular Workflows](tabular_workflows.md): Architecture, component task names, GCP v1 pipeline APIs, skip-architecture search, fast skip-evaluation retraining pipelines, BigQuery table ingestion, predefined and stratified split keys (`stratified_split_key`), sample weighting (`weight_column`), custom ops model export (`export_additional_model_without_custom_ops`), precision/recall optimization objectives, and transformation configs.
 - [Feature Transform Engine](feature_transform_engine.md): Feature Transform Engine (FTE) column types (`categorical`, `numeric`, `timestamp`, `text_embedding`, `auto`), Python SDK functions, and CLI usage.
 - [Skip Architecture Search & Benchmarks](skip_architecture_search_benchmarks.md): Stage 1 vs Stage 2 performance benchmarks (-79.6% execution time, -80.4% node-hour savings), node-hour metrics, and `tuning_result_output` artifact reuse.
 - [Inference & Serving](inference.md): Online real-time endpoint deployment, Champion vs Challenger traffic splitting, latency benchmarking script (`benchmark_bakeoff_deployment.py`), Notebook 09, JSON instance prediction, batch inference execution, and endpoint resource cleanup.

@@ -8,12 +8,15 @@
 
 - **Vertex AI Tabular Workflows**: Built on Google-managed AutoML Tabular pipeline components (`google-cloud-pipeline-components>=2.22.0`, `google_cloud_pipeline_components.v1.automl.tabular`).
 - **Direct BigQuery Ingestion**: Direct ingestion from BigQuery tables (`bigquery_table_path`, `bq://project.dataset.table`) without intermediate Cloud Storage staging.
-- **Predefined & Chronological Data Splitting**: Flexible dataset partitioning using `predefined_split_key` (supporting explicit `TRAIN`, `VALIDATE`, `TEST` partitions to prevent data leakage in time-series evaluation), timestamp splits, and stratified splits.
+- **Predefined, Chronological & Stratified Data Splitting**: Flexible dataset partitioning using `predefined_split_key` (supporting explicit `TRAIN`, `VALIDATE`, `TEST` partitions to prevent data leakage in time-series evaluation), timestamp splits, and `stratified_split_key` for class distribution preservation across partitions.
+- **Sample Weighting**: Supports sample weight assignments (`weight_column`) for weighted loss calculation and cost-sensitive model training.
+- **Fast Skip-Evaluation Retraining Pipelines**: Accelerates production retraining runs by bypassing model evaluation stages via `create_skip_evaluation_pipeline_job`, `create_distill_skip_evaluation_pipeline_job`, `tabflows run-skip-evaluation`, `tabflows compile-skip-evaluation`, or the `--skip-evaluation` flag.
+- **Custom Ops Export**: Supports exporting additional model artifacts without custom TensorFlow operations (`export_additional_model_without_custom_ops`, `--export-without-custom-ops`) to simplify model deployment environments.
 - **Specialized Optimization Objectives**: Tailored binary classification objectives including `maximize-precision-at-recall` and `maximize-recall-at-precision` with target threshold constraints (`optimization_objective_recall_value`, `optimization_objective_precision_value`).
 - **Skip Architecture Search**: Accelerates model tuning by reusing Stage 1 hyperparameter tuning results (`stage_1_tuning_result_artifact_uri`) to reduce execution time by ~79.6% and training node-hour costs by ~80.4%.
 - **Feature Transform Engine (FTE)**: Supports automated and explicit column-level transformations across `categorical`, `numeric`, `timestamp`, `text_embedding` (`text`), and `auto` data types.
 - **Model Distillation**: Supports producing lighter-weight, lower-latency distilled models alongside standard ensemble models.
-- **Vertex AI Experiments**: Full-lifecycle experiment tracking of parameters, evaluation metrics, pipeline jobs (`create_tabular_pipeline_job`, `run_skip_architecture_search_pipeline`), DoE campaigns (`run_doe_campaign`), model evaluation metrics (`get_model_evaluation_metrics`), endpoint deployments (`deploy_model_to_endpoint`), and batch prediction jobs (`run_batch_prediction`).
+- **Vertex AI Experiments**: Full-lifecycle experiment tracking of parameters, evaluation metrics, pipeline jobs (`create_tabular_pipeline_job`, `run_skip_architecture_search_pipeline`, `create_skip_evaluation_pipeline_job`), DoE campaigns (`run_doe_campaign`), model evaluation metrics (`get_model_evaluation_metrics`), endpoint deployments (`deploy_model_to_endpoint`), and batch prediction jobs (`run_batch_prediction`).
 - **Online & Batch Inference**: Built-in support for deploying models to real-time Vertex AI Endpoints (`n1-standard-4`) with Champion vs. Challenger traffic splitting (`traffic_split={"0": 90, "1": 10}`), executing online predictions, and launching non-blocking Batch Prediction jobs against GCS datasets.
 - **Automatic `.env` Configuration**: Seamless environment configuration powered by `pydantic-settings` (`BaseSettings`), automatically reading `GCP_PROJECT`, `GCP_LOCATION`, `GCP_BUCKET_URI`, and pipeline parameters from `.env`.
 - **CLI & Python SDK Interfaces**: Command-line interface and modular Python SDK for provisioning GCS assets, compiling templates, submitting jobs asynchronously (`job.submit()`), logging experiments (`log-experiment`), and running inference.
@@ -89,7 +92,8 @@ tabflows/
 │   ├── 06_bigquery_and_split_strategies.ipynb
 │   ├── 07_champion_challenger_traffic_split.ipynb
 │   ├── 08_optimization_objectives_and_targets.ipynb
-│   └── 09_bakeoff_live_deployment_and_benchmarking.ipynb
+│   ├── 09_bakeoff_live_deployment_and_benchmarking.ipynb
+│   └── 10_complete_tabular_workflows_feature_showcase.ipynb
 ├── tests/                     # Unit tests
 │   ├── test_cli.py            # CLI integration tests
 │   ├── test_config.py         # Config schema & .env tests
@@ -191,8 +195,23 @@ Use the `tabflows` CLI to compile templates, submit pipeline jobs, generate FTE 
 # Compile standard AutoML Tabular pipeline template locally
 uv run tabflows run-automl --compile-only
 
-# Submit standard AutoML Tabular pipeline asynchronously with model distillation enabled
-uv run tabflows run-automl --distill --async-mode
+# Submit standard AutoML Tabular pipeline asynchronously with stratified splitting, weight column, and distillation
+uv run tabflows run-automl \
+    --stratified-split-key "class_target" \
+    --weight-column "sample_weight" \
+    --distill \
+    --export-without-custom-ops \
+    --async-mode
+
+# Submit fast Skip-Evaluation retraining pipeline asynchronously
+uv run tabflows run-skip-evaluation \
+    --stratified-split-key "class_target" \
+    --weight-column "sample_weight" \
+    --distill \
+    --async-mode
+
+# Compile Skip-Evaluation retraining pipeline template locally
+uv run tabflows compile-skip-evaluation --distill --export-without-custom-ops
 
 # Generate Feature Transform Engine (FTE) JSON configuration
 uv run tabflows generate-fte-config \
@@ -235,6 +254,8 @@ uv run tabflows list-experiments
 from dotenv import load_dotenv
 from tabflows import (
     TabularPipelineConfig,
+    create_distill_skip_evaluation_pipeline_job,
+    create_skip_evaluation_pipeline_job,
     create_tabular_pipeline_job,
     deploy_model_to_endpoint,
     generate_fte_transformations,
@@ -250,7 +271,12 @@ from tabflows import (
 
 # 1. Load .env environment variables and configuration
 load_dotenv()
-config = TabularPipelineConfig(run_distillation=True)
+config = TabularPipelineConfig(
+    run_distillation=True,
+    stratified_split_key="class_target",
+    weight_column="sample_weight",
+    export_additional_model_without_custom_ops=True,
+)
 
 # 2. Generate Feature Transform Engine (FTE) column transformations
 fte_transformations = generate_fte_transformations(
@@ -269,7 +295,13 @@ stage1_job = create_tabular_pipeline_job(
     log_experiment=True,
 )
 
-# 4. Create & Submit Stage 2 Pipeline (Skip Architecture Search with experiment tracking)
+# 4. Create & Submit Fast Skip-Evaluation Retraining Pipeline
+skip_eval_job = create_skip_evaluation_pipeline_job(
+    config=config,
+    job_id="retrain-skip-eval-run",
+)
+
+# 5. Create & Submit Stage 2 Pipeline (Skip Architecture Search with experiment tracking)
 stage2_job = run_skip_architecture_search_pipeline(
     config=config,
     tuning_result_artifact_uri="gs://your-bucket/stage1_job/automl-tabular-stage-1-tuner/tuning_result_output",
@@ -362,6 +394,9 @@ uv run jupyter notebook notebooks/08_optimization_objectives_and_targets.ipynb
 
 # 09. Bake-off Live Deployment & Latency Benchmarking Notebook
 uv run jupyter notebook notebooks/09_bakeoff_live_deployment_and_benchmarking.ipynb
+
+# 10. Complete Tabular Workflows Feature Showcase Notebook
+uv run jupyter notebook notebooks/10_complete_tabular_workflows_feature_showcase.ipynb
 ```
 
 #### Notebook Summaries
@@ -374,6 +409,7 @@ uv run jupyter notebook notebooks/09_bakeoff_live_deployment_and_benchmarking.ip
 - **Notebook 07 (`07_champion_challenger_traffic_split.ipynb`)**: Champion vs. Challenger canary model deployments, endpoint multi-model traffic splitting (`traffic_split={"0": 90, "1": 10}`), online predictions, and endpoint resource cleanup.
 - **Notebook 08 (`08_optimization_objectives_and_targets.ipynb`)**: Specialized binary classification optimization objectives (`maximize-precision-at-recall`, `maximize-recall-at-precision`) with precision/recall target constraints (`optimization_objective_recall_value`, `optimization_objective_precision_value`) for fraud detection and marketing conversion use cases.
 - **Notebook 09 (`09_bakeoff_live_deployment_and_benchmarking.ipynb`)**: Live endpoint deployment of Bake-off teacher and distilled student models, Champion vs. Challenger traffic splitting (90/10), online prediction latency benchmarking (p50, p90, p95 response times, QPS throughput), and automatic endpoint cleanup.
+- **Notebook 10 (`10_complete_tabular_workflows_feature_showcase.ipynb`)**: Complete showcase of advanced Tabular Workflows capabilities including stratified data splitting (`stratified_split_key`), sample weighting (`weight_column`), fast skip-evaluation retraining pipelines (`create_skip_evaluation_pipeline_job`, `create_distill_skip_evaluation_pipeline_job`), and custom ops model export (`export_additional_model_without_custom_ops`).
 
 ### 5. Automation & Benchmark Scripts
 
