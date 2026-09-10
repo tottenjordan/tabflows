@@ -87,6 +87,11 @@ def _run_automl_impl(
     weight_column: str | None = None,
     skip_evaluation: bool = False,
     export_without_custom_ops: bool = False,
+    enable_probabilistic_inference: bool = False,
+    quantiles: str | None = None,
+    model_display_name: str | None = None,
+    model_description: str | None = None,
+    dataflow_service_account: str | None = None,
 ) -> None:
     config = _get_config(project, location, bucket)
     config.run_distillation = distill
@@ -98,6 +103,17 @@ def _run_automl_impl(
         config.skip_evaluation = skip_evaluation
     if export_without_custom_ops:
         config.export_additional_model_without_custom_ops = export_without_custom_ops
+    if enable_probabilistic_inference:
+        config.enable_probabilistic_inference = enable_probabilistic_inference
+    if quantiles:
+        config.quantiles = [float(q.strip()) for q in quantiles.split(",") if q.strip()]
+        config.enable_probabilistic_inference = True
+    if model_display_name:
+        config.model_display_name = model_display_name
+    if model_description:
+        config.model_description = model_description
+    if dataflow_service_account:
+        config.dataflow_service_account = dataflow_service_account
 
     if not config.project_id or not config.bucket_uri:
         click.echo("Error: Both project_id and bucket_uri must be provided or set in .env")
@@ -160,6 +176,20 @@ def _run_automl_impl(
     default=False,
     help="Export additional model without custom TF ops",
 )
+@click.option(
+    "--enable-probabilistic-inference",
+    is_flag=True,
+    default=False,
+    help="Enable probabilistic quantile inference",
+)
+@click.option(
+    "--quantiles",
+    default=None,
+    help="Comma-separated quantiles (e.g. '0.1,0.5,0.9')",
+)
+@click.option("--model-display-name", default=None, help="Model display name in Model Registry")
+@click.option("--model-description", default=None, help="Model description in Model Registry")
+@click.option("--dataflow-service-account", default=None, help="Service account email for Dataflow")
 def run_automl(
     project: str | None,
     location: str | None,
@@ -172,6 +202,11 @@ def run_automl(
     weight_column: str | None,
     skip_evaluation: bool,
     export_without_custom_ops: bool,
+    enable_probabilistic_inference: bool,
+    quantiles: str | None,
+    model_display_name: str | None,
+    model_description: str | None,
+    dataflow_service_account: str | None,
 ) -> None:
     """Build and submit standard AutoML Tabular pipeline."""
     _run_automl_impl(
@@ -186,6 +221,11 @@ def run_automl(
         weight_column=weight_column,
         skip_evaluation=skip_evaluation,
         export_without_custom_ops=export_without_custom_ops,
+        enable_probabilistic_inference=enable_probabilistic_inference,
+        quantiles=quantiles,
+        model_display_name=model_display_name,
+        model_description=model_description,
+        dataflow_service_account=dataflow_service_account,
     )
 
 
@@ -212,6 +252,20 @@ def run_automl(
     default=False,
     help="Export additional model without custom TF ops",
 )
+@click.option(
+    "--enable-probabilistic-inference",
+    is_flag=True,
+    default=False,
+    help="Enable probabilistic quantile inference",
+)
+@click.option(
+    "--quantiles",
+    default=None,
+    help="Comma-separated quantiles (e.g. '0.1,0.5,0.9')",
+)
+@click.option("--model-display-name", default=None, help="Model display name in Model Registry")
+@click.option("--model-description", default=None, help="Model description in Model Registry")
+@click.option("--dataflow-service-account", default=None, help="Service account email for Dataflow")
 def run_pipeline(
     project: str | None,
     location: str | None,
@@ -224,6 +278,11 @@ def run_pipeline(
     weight_column: str | None,
     skip_evaluation: bool,
     export_without_custom_ops: bool,
+    enable_probabilistic_inference: bool,
+    quantiles: str | None,
+    model_display_name: str | None,
+    model_description: str | None,
+    dataflow_service_account: str | None,
 ) -> None:
     """Build and submit AutoML Tabular pipeline."""
     _run_automl_impl(
@@ -238,6 +297,11 @@ def run_pipeline(
         weight_column=weight_column,
         skip_evaluation=skip_evaluation,
         export_without_custom_ops=export_without_custom_ops,
+        enable_probabilistic_inference=enable_probabilistic_inference,
+        quantiles=quantiles,
+        model_display_name=model_display_name,
+        model_description=model_description,
+        dataflow_service_account=dataflow_service_account,
     )
 
 
@@ -258,6 +322,20 @@ def run_pipeline(
     default=False,
     help="Export additional model without custom TF ops",
 )
+@click.option(
+    "--enable-probabilistic-inference",
+    is_flag=True,
+    default=False,
+    help="Enable probabilistic quantile inference",
+)
+@click.option(
+    "--quantiles",
+    default=None,
+    help="Comma-separated quantiles (e.g. '0.1,0.5,0.9')",
+)
+@click.option("--model-display-name", default=None, help="Model display name in Model Registry")
+@click.option("--model-description", default=None, help="Model description in Model Registry")
+@click.option("--dataflow-service-account", default=None, help="Service account email for Dataflow")
 def compile_pipeline(
     project: str | None,
     location: str | None,
@@ -268,6 +346,11 @@ def compile_pipeline(
     weight_column: str | None,
     skip_evaluation: bool,
     export_without_custom_ops: bool,
+    enable_probabilistic_inference: bool,
+    quantiles: str | None,
+    model_display_name: str | None,
+    model_description: str | None,
+    dataflow_service_account: str | None,
 ) -> None:
     """Compile AutoML Tabular pipeline template without submitting job."""
     _run_automl_impl(
@@ -282,6 +365,11 @@ def compile_pipeline(
         weight_column=weight_column,
         skip_evaluation=skip_evaluation,
         export_without_custom_ops=export_without_custom_ops,
+        enable_probabilistic_inference=enable_probabilistic_inference,
+        quantiles=quantiles,
+        model_display_name=model_display_name,
+        model_description=model_description,
+        dataflow_service_account=dataflow_service_account,
     )
 
 
@@ -296,6 +384,11 @@ def _run_skip_evaluation_impl(
     stratified_split_key: str | None = None,
     weight_column: str | None = None,
     export_without_custom_ops: bool = False,
+    enable_probabilistic_inference: bool = False,
+    quantiles: str | None = None,
+    model_display_name: str | None = None,
+    model_description: str | None = None,
+    dataflow_service_account: str | None = None,
 ) -> None:
     config = _get_config(project, location, bucket)
     config.run_distillation = distill
@@ -306,6 +399,17 @@ def _run_skip_evaluation_impl(
         config.weight_column = weight_column
     if export_without_custom_ops:
         config.export_additional_model_without_custom_ops = export_without_custom_ops
+    if enable_probabilistic_inference:
+        config.enable_probabilistic_inference = enable_probabilistic_inference
+    if quantiles:
+        config.quantiles = [float(q.strip()) for q in quantiles.split(",") if q.strip()]
+        config.enable_probabilistic_inference = True
+    if model_display_name:
+        config.model_display_name = model_display_name
+    if model_description:
+        config.model_description = model_description
+    if dataflow_service_account:
+        config.dataflow_service_account = dataflow_service_account
 
     if not config.project_id or not config.bucket_uri:
         click.echo("Error: Both project_id and bucket_uri must be provided or set in .env")
@@ -368,6 +472,20 @@ def _run_skip_evaluation_impl(
     default=False,
     help="Export additional model without custom TF ops",
 )
+@click.option(
+    "--enable-probabilistic-inference",
+    is_flag=True,
+    default=False,
+    help="Enable probabilistic quantile inference",
+)
+@click.option(
+    "--quantiles",
+    default=None,
+    help="Comma-separated quantiles (e.g. '0.1,0.5,0.9')",
+)
+@click.option("--model-display-name", default=None, help="Model display name in Model Registry")
+@click.option("--model-description", default=None, help="Model description in Model Registry")
+@click.option("--dataflow-service-account", default=None, help="Service account email for Dataflow")
 def run_skip_evaluation(
     project: str | None,
     location: str | None,
@@ -379,6 +497,11 @@ def run_skip_evaluation(
     stratified_split_key: str | None,
     weight_column: str | None,
     export_without_custom_ops: bool,
+    enable_probabilistic_inference: bool,
+    quantiles: str | None,
+    model_display_name: str | None,
+    model_description: str | None,
+    dataflow_service_account: str | None,
 ) -> None:
     """Build and submit Skip Evaluation AutoML Tabular pipeline."""
     _run_skip_evaluation_impl(
@@ -392,6 +515,11 @@ def run_skip_evaluation(
         stratified_split_key,
         weight_column,
         export_without_custom_ops,
+        enable_probabilistic_inference,
+        quantiles,
+        model_display_name,
+        model_description,
+        dataflow_service_account,
     )
 
 
@@ -411,6 +539,20 @@ def run_skip_evaluation(
     default=False,
     help="Export additional model without custom TF ops",
 )
+@click.option(
+    "--enable-probabilistic-inference",
+    is_flag=True,
+    default=False,
+    help="Enable probabilistic quantile inference",
+)
+@click.option(
+    "--quantiles",
+    default=None,
+    help="Comma-separated quantiles (e.g. '0.1,0.5,0.9')",
+)
+@click.option("--model-display-name", default=None, help="Model display name in Model Registry")
+@click.option("--model-description", default=None, help="Model description in Model Registry")
+@click.option("--dataflow-service-account", default=None, help="Service account email for Dataflow")
 def compile_skip_evaluation(
     project: str | None,
     location: str | None,
@@ -420,6 +562,11 @@ def compile_skip_evaluation(
     stratified_split_key: str | None,
     weight_column: str | None,
     export_without_custom_ops: bool,
+    enable_probabilistic_inference: bool,
+    quantiles: str | None,
+    model_display_name: str | None,
+    model_description: str | None,
+    dataflow_service_account: str | None,
 ) -> None:
     """Compile Skip Evaluation AutoML Tabular pipeline template without submitting job."""
     _run_skip_evaluation_impl(
@@ -433,6 +580,11 @@ def compile_skip_evaluation(
         stratified_split_key=stratified_split_key,
         weight_column=weight_column,
         export_without_custom_ops=export_without_custom_ops,
+        enable_probabilistic_inference=enable_probabilistic_inference,
+        quantiles=quantiles,
+        model_display_name=model_display_name,
+        model_description=model_description,
+        dataflow_service_account=dataflow_service_account,
     )
 
 

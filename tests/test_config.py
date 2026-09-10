@@ -107,4 +107,27 @@ def test_tabular_pipeline_config_stratified_split_and_skip_eval():
     assert config.weight_column == "sample_w"
 
 
+def test_tabular_pipeline_config_probabilistic_inference_and_metadata():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        enable_probabilistic_inference=True,
+        quantiles=[0.1, 0.5, 0.9],
+        model_display_name="churn-champion-v1",
+        model_description="Automated production model",
+        dataflow_service_account="sa@project.iam.gserviceaccount.com",
+        evaluation_batch_predict_machine_type="n1-highmem-8",
+        evaluation_batch_predict_max_replica_count=10,
+        evaluation_batch_explain_machine_type="n1-highmem-8",
+        evaluation_batch_explain_max_replica_count=5,
+    )
 
+    assert config.enable_probabilistic_inference is True
+    assert config.quantiles == [0.1, 0.5, 0.9]
+    assert config.model_display_name == "churn-champion-v1"
+    assert config.model_description == "Automated production model"
+    assert config.dataflow_service_account == "sa@project.iam.gserviceaccount.com"
+    assert config.evaluation_batch_predict_machine_type == "n1-highmem-8"
+    assert config.evaluation_batch_predict_max_replica_count == 10
+    assert config.evaluation_batch_explain_machine_type == "n1-highmem-8"
+    assert config.evaluation_batch_explain_max_replica_count == 5

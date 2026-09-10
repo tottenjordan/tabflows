@@ -503,3 +503,36 @@ def test_compile_skip_evaluation_distill():
         assert config_passed.run_distillation is True
 
 
+def test_cli_probabilistic_inference_and_metadata_flags():
+    runner = CliRunner()
+    with patch("tabflows.cli.build_automl_tabular_pipeline") as mock_build:
+        mock_build.return_value = ("gs://test-bucket/pipeline.yaml", {"project": "test-proj"})
+
+        result = runner.invoke(
+            main,
+            [
+                "compile-pipeline",
+                "--project",
+                "test-proj",
+                "--bucket",
+                "gs://test-bucket",
+                "--enable-probabilistic-inference",
+                "--quantiles",
+                "0.1, 0.5, 0.9",
+                "--model-display-name",
+                "churn-champion",
+                "--model-description",
+                "Production churn model",
+                "--dataflow-service-account",
+                "sa@project.iam.gserviceaccount.com",
+            ],
+        )
+
+        assert result.exit_code == 0
+        mock_build.assert_called_once()
+        config_passed = mock_build.call_args[0][0]
+        assert config_passed.enable_probabilistic_inference is True
+        assert config_passed.quantiles == [0.1, 0.5, 0.9]
+        assert config_passed.model_display_name == "churn-champion"
+        assert config_passed.model_description == "Production churn model"
+        assert config_passed.dataflow_service_account == "sa@project.iam.gserviceaccount.com"

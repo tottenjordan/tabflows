@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Any, cast
+from typing import Any
 
 import google.auth
 from google.auth.credentials import AnonymousCredentials
@@ -159,30 +159,6 @@ def get_task_detail(task_details: list[Any], task_name: str) -> Any | None:
     return None
 
 
-def _build_data_source_spec(config: TabularPipelineConfig) -> dict[str, Any]:
-    bq_table = config.bigquery_table_path or config.data_source_bigquery_table_path
-    if bq_table:
-        return {"bigquery_table_path": bq_table}
-    if isinstance(config.data_source_csv_filenames, list):
-        return {"csv_filenames": config.data_source_csv_filenames}
-    return {"csv_filenames": [config.data_source_csv_filenames]}
-
-
-def _build_split_spec(config: TabularPipelineConfig) -> dict[str, Any]:
-    if config.predefined_split_key:
-        return {"predefined_split_key": config.predefined_split_key}
-    if config.timestamp_split_key:
-        return {"timestamp_split_key": config.timestamp_split_key}
-    if config.stratified_split_key:
-        return {"stratified_split_key": config.stratified_split_key}
-    return {
-        "fraction_split": {
-            "training_fraction": config.training_fraction,
-            "validation_fraction": config.validation_fraction,
-            "test_fraction": config.test_fraction,
-        }
-    }
-
 
 def build_automl_tabular_pipeline(
     config: TabularPipelineConfig,
@@ -220,7 +196,16 @@ def build_automl_tabular_pipeline(
         run_distillation=config.run_distillation,
         dataflow_subnetwork=config.dataflow_subnetwork,
         dataflow_use_public_ips=config.dataflow_use_public_ips,
+        dataflow_service_account=config.dataflow_service_account,
         export_additional_model_without_custom_ops=config.export_additional_model_without_custom_ops,
+        enable_probabilistic_inference=config.enable_probabilistic_inference,
+        quantiles=config.quantiles,
+        model_display_name=config.model_display_name or "",
+        model_description=config.model_description or "",
+        evaluation_batch_predict_machine_type=config.evaluation_batch_predict_machine_type,
+        evaluation_batch_predict_max_replica_count=config.evaluation_batch_predict_max_replica_count,
+        evaluation_batch_explain_machine_type=config.evaluation_batch_explain_machine_type,
+        evaluation_batch_explain_max_replica_count=config.evaluation_batch_explain_max_replica_count,
     )
 
 
@@ -258,7 +243,12 @@ def build_skip_architecture_search_pipeline(
         run_evaluation=False if config.skip_evaluation else config.run_evaluation,
         dataflow_subnetwork=config.dataflow_subnetwork,
         dataflow_use_public_ips=config.dataflow_use_public_ips,
+        dataflow_service_account=config.dataflow_service_account,
         export_additional_model_without_custom_ops=config.export_additional_model_without_custom_ops,
+        evaluation_batch_predict_machine_type=config.evaluation_batch_predict_machine_type,
+        evaluation_batch_predict_max_replica_count=config.evaluation_batch_predict_max_replica_count,
+        evaluation_batch_explain_machine_type=config.evaluation_batch_explain_machine_type,
+        evaluation_batch_explain_max_replica_count=config.evaluation_batch_explain_max_replica_count,
     )
 
 
@@ -267,41 +257,10 @@ def build_skip_evaluation_pipeline(
 ) -> tuple[str, dict[str, Any]]:
     """Build Skip Evaluation AutoML Tabular pipeline template path and parameter dict.
 
-    Uses google_cloud_pipeline_components.v1.automl.tabular.utils.
+    Uses google_cloud_pipeline_components.v1.automl.tabular.utils with run_evaluation=False.
     """
-    data_source = _build_data_source_spec(config)
-    split_spec = _build_split_spec(config)
-    transformations = generate_auto_transformation(config.features)
-
-    return automl_tabular_utils.get_skip_evaluation_pipeline_and_parameters(
-        project=config.project_id,
-        location=config.location,
-        root_dir=config.root_dir,
-        target_column_name=config.target_column,
-        prediction_type=config.prediction_type,
-        optimization_objective=config.optimization_objective,
-        optimization_objective_recall_value=(
-            config.optimization_objective_recall_value
-            if config.optimization_objective_recall_value is not None
-            else -1.0
-        ),
-        optimization_objective_precision_value=(
-            config.optimization_objective_precision_value
-            if config.optimization_objective_precision_value is not None
-            else -1.0
-        ),
-        transformations=cast(Any, transformations),
-        split_spec=split_spec,
-        data_source=data_source,
-        train_budget_milli_node_hours=float(config.train_budget_milli_node_hours),
-        weight_column_name=config.weight_column or "",
-        study_spec_override=cast(Any, config.study_spec_parameters_override),
-        stage_1_tuner_worker_pool_specs_override=cast(Any, config.worker_pool_specs_override),
-        cv_trainer_worker_pool_specs_override=cast(Any, config.worker_pool_specs_override),
-        export_additional_model_without_custom_ops=config.export_additional_model_without_custom_ops,
-        dataflow_subnetwork=config.dataflow_subnetwork or "",
-        dataflow_use_public_ips=config.dataflow_use_public_ips,
-    )
+    config_copy = config.model_copy(update={"skip_evaluation": True, "run_distillation": False})
+    return build_automl_tabular_pipeline(config_copy)
 
 
 def build_distill_skip_evaluation_pipeline(
@@ -309,41 +268,11 @@ def build_distill_skip_evaluation_pipeline(
 ) -> tuple[str, dict[str, Any]]:
     """Build Distill Skip Evaluation AutoML Tabular pipeline template path and parameter dict.
 
-    Uses google_cloud_pipeline_components.v1.automl.tabular.utils.
+    Uses google_cloud_pipeline_components.v1.automl.tabular.utils
+    with run_evaluation=False and run_distillation=True.
     """
-    data_source = _build_data_source_spec(config)
-    split_spec = _build_split_spec(config)
-    transformations = generate_auto_transformation(config.features)
-
-    return automl_tabular_utils.get_distill_skip_evaluation_pipeline_and_parameters(
-        project=config.project_id,
-        location=config.location,
-        root_dir=config.root_dir,
-        target_column_name=config.target_column,
-        prediction_type=config.prediction_type,
-        optimization_objective=config.optimization_objective,
-        optimization_objective_recall_value=(
-            config.optimization_objective_recall_value
-            if config.optimization_objective_recall_value is not None
-            else -1.0
-        ),
-        optimization_objective_precision_value=(
-            config.optimization_objective_precision_value
-            if config.optimization_objective_precision_value is not None
-            else -1.0
-        ),
-        transformations=cast(Any, transformations),
-        split_spec=split_spec,
-        data_source=data_source,
-        train_budget_milli_node_hours=float(config.train_budget_milli_node_hours),
-        weight_column_name=config.weight_column or "",
-        study_spec_override=cast(Any, config.study_spec_parameters_override),
-        stage_1_tuner_worker_pool_specs_override=cast(Any, config.worker_pool_specs_override),
-        cv_trainer_worker_pool_specs_override=cast(Any, config.worker_pool_specs_override),
-        export_additional_model_without_custom_ops=config.export_additional_model_without_custom_ops,
-        dataflow_subnetwork=config.dataflow_subnetwork or "",
-        dataflow_use_public_ips=config.dataflow_use_public_ips,
-    )
+    config_copy = config.model_copy(update={"skip_evaluation": True, "run_distillation": True})
+    return build_automl_tabular_pipeline(config_copy)
 
 
 def get_no_custom_ops_model_uri(storage_client: storage.Client, task_details: list[Any]) -> str:

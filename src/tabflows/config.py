@@ -151,6 +151,51 @@ class TabularPipelineConfig(BaseSettings):
     dataflow_use_public_ips: bool = Field(
         default=True, description="Whether Dataflow uses public IPs"
     )
+    dataflow_service_account: str | None = Field(
+        default=None,
+        description="Custom service account email for Dataflow jobs",
+        validation_alias="DATAFLOW_SERVICE_ACCOUNT",
+    )
+    enable_probabilistic_inference: bool = Field(
+        default=False,
+        description="Whether to enable probabilistic quantile inference",
+        validation_alias="ENABLE_PROBABILISTIC_INFERENCE",
+    )
+    quantiles: list[float] | None = Field(
+        default=None,
+        description="Quantiles for probabilistic inference (up to 5 values between 0.0 and 1.0)",
+        validation_alias="QUANTILES",
+    )
+    model_display_name: str | None = Field(
+        default=None,
+        description="Model display name registered in Vertex AI Model Registry",
+        validation_alias="MODEL_DISPLAY_NAME",
+    )
+    model_description: str | None = Field(
+        default=None,
+        description="Model description registered in Vertex AI Model Registry",
+        validation_alias="MODEL_DESCRIPTION",
+    )
+    evaluation_batch_predict_machine_type: str | None = Field(
+        default=None,
+        description="Machine type for evaluation batch predict",
+        validation_alias="EVALUATION_BATCH_PREDICT_MACHINE_TYPE",
+    )
+    evaluation_batch_predict_max_replica_count: int | None = Field(
+        default=None,
+        description="Max replica count for evaluation batch predict",
+        validation_alias="EVALUATION_BATCH_PREDICT_MAX_REPLICA_COUNT",
+    )
+    evaluation_batch_explain_machine_type: str | None = Field(
+        default=None,
+        description="Machine type for evaluation batch explain",
+        validation_alias="EVALUATION_BATCH_EXPLAIN_MACHINE_TYPE",
+    )
+    evaluation_batch_explain_max_replica_count: int | None = Field(
+        default=None,
+        description="Max replica count for evaluation batch explain",
+        validation_alias="EVALUATION_BATCH_EXPLAIN_MAX_REPLICA_COUNT",
+    )
     serving_machine_type: str = Field(
         default="n1-standard-4",
         description="Serving machine type for online endpoint deployment",

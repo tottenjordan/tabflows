@@ -339,10 +339,11 @@ def test_build_skip_evaluation_pipeline():
     assert isinstance(template_path, str)
     assert isinstance(parameter_values, dict)
     assert parameter_values["project"] == "test-project"
-    assert parameter_values["target_column_name"] == "deposit"
-    assert parameter_values["weight_column_name"] == "weight_col"
+    assert parameter_values["target_column"] == "deposit"
+    assert parameter_values["weight_column"] == "weight_col"
     assert parameter_values["export_additional_model_without_custom_ops"] is True
-    assert "strata_col" in parameter_values["split_spec"]
+    assert parameter_values["stratified_split_key"] == "strata_col"
+    assert parameter_values.get("run_evaluation") is None
 
 
 def test_build_distill_skip_evaluation_pipeline():
@@ -359,9 +360,61 @@ def test_build_distill_skip_evaluation_pipeline():
     assert isinstance(parameter_values, dict)
     assert parameter_values["project"] == "test-project"
     assert parameter_values["run_distillation"] is True
-    assert parameter_values["weight_column_name"] == "weight_col"
+    assert parameter_values["target_column"] == "deposit"
+    assert parameter_values["weight_column"] == "weight_col"
     assert parameter_values["export_additional_model_without_custom_ops"] is True
-    assert "strata_col" in parameter_values["split_spec"]
+    assert parameter_values["stratified_split_key"] == "strata_col"
+    assert parameter_values.get("run_evaluation") is None
+
+
+def test_build_automl_tabular_pipeline_with_probabilistic_inference_and_metadata():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        enable_probabilistic_inference=True,
+        quantiles=[0.1, 0.5, 0.9],
+        model_display_name="churn-champion-v1",
+        model_description="Production classification model",
+        dataflow_service_account="sa@project.iam.gserviceaccount.com",
+        evaluation_batch_predict_machine_type="n1-highmem-8",
+        evaluation_batch_predict_max_replica_count=10,
+        evaluation_batch_explain_machine_type="n1-highmem-8",
+        evaluation_batch_explain_max_replica_count=5,
+    )
+
+    template_path, parameter_values = build_automl_tabular_pipeline(config)
+    assert isinstance(template_path, str)
+    assert parameter_values["enable_probabilistic_inference"] is True
+    assert parameter_values["quantiles"] == [0.1, 0.5, 0.9]
+    assert parameter_values["model_display_name"] == "churn-champion-v1"
+    assert parameter_values["model_description"] == "Production classification model"
+    assert parameter_values["dataflow_service_account"] == "sa@project.iam.gserviceaccount.com"
+    assert parameter_values["evaluation_batch_predict_machine_type"] == "n1-highmem-8"
+    assert parameter_values["evaluation_batch_predict_max_replica_count"] == 10
+    assert parameter_values["evaluation_batch_explain_machine_type"] == "n1-highmem-8"
+    assert parameter_values["evaluation_batch_explain_max_replica_count"] == 5
+
+
+def test_build_skip_architecture_search_pipeline_with_infrastructure_controls():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        dataflow_service_account="sa@project.iam.gserviceaccount.com",
+        evaluation_batch_predict_machine_type="n1-highmem-8",
+        evaluation_batch_predict_max_replica_count=10,
+        evaluation_batch_explain_machine_type="n1-highmem-8",
+        evaluation_batch_explain_max_replica_count=5,
+    )
+
+    template_path, parameter_values = build_skip_architecture_search_pipeline(
+        config, stage_1_tuning_result_artifact_uri="gs://test-bucket/tuning_result"
+    )
+    assert isinstance(template_path, str)
+    assert parameter_values["dataflow_service_account"] == "sa@project.iam.gserviceaccount.com"
+    assert parameter_values["evaluation_batch_predict_machine_type"] == "n1-highmem-8"
+    assert parameter_values["evaluation_batch_predict_max_replica_count"] == 10
+    assert parameter_values["evaluation_batch_explain_machine_type"] == "n1-highmem-8"
+    assert parameter_values["evaluation_batch_explain_max_replica_count"] == 5
 
 
 def test_create_skip_evaluation_pipeline_jobs():
