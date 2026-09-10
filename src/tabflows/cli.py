@@ -28,6 +28,7 @@ from tabflows.inference import (
 from tabflows.pipeline import (
     build_automl_tabular_pipeline,
     build_distill_skip_evaluation_pipeline,
+    build_feature_selection_pipeline,
     build_skip_architecture_search_pipeline,
     build_skip_evaluation_pipeline,
     generate_fte_transformations,
@@ -92,6 +93,8 @@ def _run_automl_impl(
     model_display_name: str | None = None,
     model_description: str | None = None,
     dataflow_service_account: str | None = None,
+    num_selected_features: int | None = None,
+    apply_feature_selection_tuning: bool | None = None,
 ) -> None:
     config = _get_config(project, location, bucket)
     config.run_distillation = distill
@@ -114,6 +117,10 @@ def _run_automl_impl(
         config.model_description = model_description
     if dataflow_service_account:
         config.dataflow_service_account = dataflow_service_account
+    if num_selected_features is not None:
+        config.num_selected_features = num_selected_features
+    if apply_feature_selection_tuning is not None:
+        config.apply_feature_selection_tuning = apply_feature_selection_tuning
 
     if not config.project_id or not config.bucket_uri:
         click.echo("Error: Both project_id and bucket_uri must be provided or set in .env")
@@ -190,6 +197,15 @@ def _run_automl_impl(
 @click.option("--model-display-name", default=None, help="Model display name in Model Registry")
 @click.option("--model-description", default=None, help="Model description in Model Registry")
 @click.option("--dataflow-service-account", default=None, help="Service account email for Dataflow")
+@click.option(
+    "--num-selected-features", type=int, default=None, help="Target feature count for training"
+)
+@click.option(
+    "--apply-feature-selection-tuning",
+    is_flag=True,
+    default=None,
+    help="Enable tuning of feature selection threshold",
+)
 def run_automl(
     project: str | None,
     location: str | None,
@@ -207,6 +223,8 @@ def run_automl(
     model_display_name: str | None,
     model_description: str | None,
     dataflow_service_account: str | None,
+    num_selected_features: int | None = None,
+    apply_feature_selection_tuning: bool | None = None,
 ) -> None:
     """Build and submit standard AutoML Tabular pipeline."""
     _run_automl_impl(
@@ -226,6 +244,8 @@ def run_automl(
         model_display_name=model_display_name,
         model_description=model_description,
         dataflow_service_account=dataflow_service_account,
+        num_selected_features=num_selected_features,
+        apply_feature_selection_tuning=apply_feature_selection_tuning,
     )
 
 
@@ -266,6 +286,15 @@ def run_automl(
 @click.option("--model-display-name", default=None, help="Model display name in Model Registry")
 @click.option("--model-description", default=None, help="Model description in Model Registry")
 @click.option("--dataflow-service-account", default=None, help="Service account email for Dataflow")
+@click.option(
+    "--num-selected-features", type=int, default=None, help="Target feature count for training"
+)
+@click.option(
+    "--apply-feature-selection-tuning",
+    is_flag=True,
+    default=None,
+    help="Enable tuning of feature selection threshold",
+)
 def run_pipeline(
     project: str | None,
     location: str | None,
@@ -283,6 +312,8 @@ def run_pipeline(
     model_display_name: str | None,
     model_description: str | None,
     dataflow_service_account: str | None,
+    num_selected_features: int | None = None,
+    apply_feature_selection_tuning: bool | None = None,
 ) -> None:
     """Build and submit AutoML Tabular pipeline."""
     _run_automl_impl(
@@ -302,6 +333,8 @@ def run_pipeline(
         model_display_name=model_display_name,
         model_description=model_description,
         dataflow_service_account=dataflow_service_account,
+        num_selected_features=num_selected_features,
+        apply_feature_selection_tuning=apply_feature_selection_tuning,
     )
 
 
@@ -336,6 +369,15 @@ def run_pipeline(
 @click.option("--model-display-name", default=None, help="Model display name in Model Registry")
 @click.option("--model-description", default=None, help="Model description in Model Registry")
 @click.option("--dataflow-service-account", default=None, help="Service account email for Dataflow")
+@click.option(
+    "--num-selected-features", type=int, default=None, help="Target feature count for training"
+)
+@click.option(
+    "--apply-feature-selection-tuning",
+    is_flag=True,
+    default=None,
+    help="Enable tuning of feature selection threshold",
+)
 def compile_pipeline(
     project: str | None,
     location: str | None,
@@ -351,6 +393,8 @@ def compile_pipeline(
     model_display_name: str | None,
     model_description: str | None,
     dataflow_service_account: str | None,
+    num_selected_features: int | None = None,
+    apply_feature_selection_tuning: bool | None = None,
 ) -> None:
     """Compile AutoML Tabular pipeline template without submitting job."""
     _run_automl_impl(
@@ -370,6 +414,8 @@ def compile_pipeline(
         model_display_name=model_display_name,
         model_description=model_description,
         dataflow_service_account=dataflow_service_account,
+        num_selected_features=num_selected_features,
+        apply_feature_selection_tuning=apply_feature_selection_tuning,
     )
 
 
@@ -585,6 +631,194 @@ def compile_skip_evaluation(
         model_display_name=model_display_name,
         model_description=model_description,
         dataflow_service_account=dataflow_service_account,
+    )
+
+
+def _run_feature_selection_impl(
+    project: str | None,
+    location: str | None,
+    bucket: str | None,
+    job_id: str | None,
+    compile_only: bool,
+    async_mode: bool,
+    algorithm: str | None = None,
+    engine: str = "bigquery",
+    max_selected_features: int | None = None,
+    staging_dataset: str | None = None,
+    target_column: str | None = None,
+    stratified_split_key: str | None = None,
+    weight_column: str | None = None,
+) -> None:
+    config = _get_config(project, location, bucket)
+    if algorithm:
+        config.feature_selection_algorithm = algorithm
+    if engine:
+        config.feature_selection_engine = engine
+    if max_selected_features is not None:
+        config.max_selected_features = max_selected_features
+    if staging_dataset:
+        config.bigquery_staging_full_dataset_id = staging_dataset
+    if target_column:
+        config.target_column = target_column
+    if stratified_split_key:
+        config.stratified_split_key = stratified_split_key
+    if weight_column:
+        config.weight_column = weight_column
+
+    if not config.project_id or not config.bucket_uri:
+        click.echo("Error: Both project_id and bucket_uri must be provided or set in .env")
+        raise click.Abort()
+
+    if not job_id:
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        job_id = f"automl-feature-selection-{timestamp}"
+
+    click.echo(
+        f"Building Feature Selection Pipeline (algorithm: {config.feature_selection_algorithm}, "
+        f"engine: {config.feature_selection_engine}) for project {config.project_id}..."
+    )
+    template_path, parameter_values = build_feature_selection_pipeline(config)
+    click.echo(f"Template compiled at: {template_path}")
+
+    if compile_only:
+        click.echo("Compile-only mode requested. Skipping job submission.")
+        return
+
+    aiplatform.init(project=config.project_id, location=config.location)
+    job = aiplatform.PipelineJob(
+        display_name=job_id,
+        location=config.location,
+        template_path=template_path,
+        job_id=job_id,
+        pipeline_root=config.root_dir,
+        parameter_values=parameter_values,
+        enable_caching=False,
+    )
+
+    if async_mode:
+        click.echo(f"Submitting pipeline job '{job_id}' asynchronously to Vertex AI...")
+        job.submit()
+        click.echo("Pipeline job submitted successfully.")
+    else:
+        click.echo(f"Submitting pipeline job '{job_id}' to Vertex AI...")
+        job.run()
+
+
+@main.command()
+@click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
+@click.option("--location", default=None, help="GCP Region (defaults to .env)")
+@click.option("--bucket", default=None, help="GCS Bucket URI (defaults to .env)")
+@click.option("--job-id", default=None, help="Pipeline Job ID")
+@click.option("--compile-only", is_flag=True, help="Only compile template without submitting job")
+@click.option(
+    "--async-mode",
+    is_flag=True,
+    help="Submit job asynchronously to Vertex AI without blocking",
+)
+@click.option(
+    "--algorithm",
+    type=click.Choice(["AMI", "CMIM", "JMIM", "MRMR"], case_sensitive=False),
+    default="MRMR",
+    help="Feature selection algorithm: AMI, CMIM, JMIM, MRMR",
+)
+@click.option(
+    "--engine",
+    type=click.Choice(["bigquery", "dataflow"], case_sensitive=False),
+    default="bigquery",
+    help="Execution engine for feature selection: bigquery or dataflow",
+)
+@click.option(
+    "--max-selected-features", type=int, default=None, help="Maximum number of features to select"
+)
+@click.option("--staging-dataset", default=None, help="BigQuery staging dataset ID")
+@click.option("--target-column", default=None, help="Target column name")
+@click.option("--stratified-split-key", default=None, help="Stratified split column key")
+@click.option("--weight-column", default=None, help="Sample weight column name")
+def run_feature_selection(
+    project: str | None,
+    location: str | None,
+    bucket: str | None,
+    job_id: str | None,
+    compile_only: bool,
+    async_mode: bool,
+    algorithm: str | None,
+    engine: str,
+    max_selected_features: int | None,
+    staging_dataset: str | None,
+    target_column: str | None,
+    stratified_split_key: str | None,
+    weight_column: str | None,
+) -> None:
+    """Build and submit Feature Selection pipeline."""
+    _run_feature_selection_impl(
+        project=project,
+        location=location,
+        bucket=bucket,
+        job_id=job_id,
+        compile_only=compile_only,
+        async_mode=async_mode,
+        algorithm=algorithm,
+        engine=engine,
+        max_selected_features=max_selected_features,
+        staging_dataset=staging_dataset,
+        target_column=target_column,
+        stratified_split_key=stratified_split_key,
+        weight_column=weight_column,
+    )
+
+
+@main.command()
+@click.option("--project", default=None, help="GCP Project ID (defaults to .env)")
+@click.option("--location", default=None, help="GCP Region (defaults to .env)")
+@click.option("--bucket", default=None, help="GCS Bucket URI (defaults to .env)")
+@click.option("--job-id", default=None, help="Pipeline Job ID")
+@click.option(
+    "--algorithm",
+    type=click.Choice(["AMI", "CMIM", "JMIM", "MRMR"], case_sensitive=False),
+    default="MRMR",
+    help="Feature selection algorithm: AMI, CMIM, JMIM, MRMR",
+)
+@click.option(
+    "--engine",
+    type=click.Choice(["bigquery", "dataflow"], case_sensitive=False),
+    default="bigquery",
+    help="Execution engine for feature selection: bigquery or dataflow",
+)
+@click.option(
+    "--max-selected-features", type=int, default=None, help="Maximum number of features to select"
+)
+@click.option("--staging-dataset", default=None, help="BigQuery staging dataset ID")
+@click.option("--target-column", default=None, help="Target column name")
+@click.option("--stratified-split-key", default=None, help="Stratified split column key")
+@click.option("--weight-column", default=None, help="Sample weight column name")
+def compile_feature_selection(
+    project: str | None,
+    location: str | None,
+    bucket: str | None,
+    job_id: str | None,
+    algorithm: str | None,
+    engine: str,
+    max_selected_features: int | None,
+    staging_dataset: str | None,
+    target_column: str | None,
+    stratified_split_key: str | None,
+    weight_column: str | None,
+) -> None:
+    """Compile Feature Selection pipeline template without submitting job."""
+    _run_feature_selection_impl(
+        project=project,
+        location=location,
+        bucket=bucket,
+        job_id=job_id,
+        compile_only=True,
+        async_mode=False,
+        algorithm=algorithm,
+        engine=engine,
+        max_selected_features=max_selected_features,
+        staging_dataset=staging_dataset,
+        target_column=target_column,
+        stratified_split_key=stratified_split_key,
+        weight_column=weight_column,
     )
 
 

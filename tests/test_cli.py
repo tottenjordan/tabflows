@@ -536,3 +536,75 @@ def test_cli_probabilistic_inference_and_metadata_flags():
         assert config_passed.model_display_name == "churn-champion"
         assert config_passed.model_description == "Production churn model"
         assert config_passed.dataflow_service_account == "sa@project.iam.gserviceaccount.com"
+
+
+def test_compile_feature_selection_cli():
+    runner = CliRunner()
+    with patch("tabflows.cli.build_feature_selection_pipeline") as mock_build:
+        mock_build.return_value = (
+            "gs://test-bucket/feature_selection_pipeline.yaml",
+            {"project": "test-proj"},
+        )
+
+        result = runner.invoke(
+            main,
+            [
+                "compile-feature-selection",
+                "--project",
+                "test-proj",
+                "--bucket",
+                "gs://test-bucket",
+                "--algorithm",
+                "CMIM",
+                "--engine",
+                "bigquery",
+                "--max-selected-features",
+                "15",
+                "--staging-dataset",
+                "test-proj.staging",
+                "--target-column",
+                "deposit",
+                "--stratified-split-key",
+                "strata",
+                "--weight-column",
+                "weights",
+            ],
+        )
+
+        assert result.exit_code == 0
+        mock_build.assert_called_once()
+        config_passed = mock_build.call_args[0][0]
+        assert config_passed.feature_selection_algorithm == "CMIM"
+        assert config_passed.feature_selection_engine == "bigquery"
+        assert config_passed.max_selected_features == 15
+        assert config_passed.bigquery_staging_full_dataset_id == "test-proj.staging"
+        assert config_passed.target_column == "deposit"
+        assert config_passed.stratified_split_key == "strata"
+        assert config_passed.weight_column == "weights"
+
+
+def test_compile_pipeline_with_num_selected_features():
+    runner = CliRunner()
+    with patch("tabflows.cli.build_automl_tabular_pipeline") as mock_build:
+        mock_build.return_value = ("gs://test-bucket/pipeline.yaml", {"project": "test-proj"})
+
+        result = runner.invoke(
+            main,
+            [
+                "compile-pipeline",
+                "--project",
+                "test-proj",
+                "--bucket",
+                "gs://test-bucket",
+                "--num-selected-features",
+                "12",
+                "--apply-feature-selection-tuning",
+            ],
+        )
+
+        assert result.exit_code == 0
+        mock_build.assert_called_once()
+        config_passed = mock_build.call_args[0][0]
+        assert config_passed.num_selected_features == 12
+        assert config_passed.apply_feature_selection_tuning is True
+

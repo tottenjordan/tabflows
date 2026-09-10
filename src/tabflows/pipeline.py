@@ -7,6 +7,9 @@ from typing import Any
 import google.auth
 from google.auth.credentials import AnonymousCredentials
 from google.cloud import aiplatform, storage
+from google_cloud_pipeline_components.preview.automl.tabular import (
+    utils as preview_tabular_utils,
+)
 from google_cloud_pipeline_components.v1.automl.tabular import utils as automl_tabular_utils
 
 from tabflows.config import TabularPipelineConfig
@@ -206,6 +209,7 @@ def build_automl_tabular_pipeline(
         evaluation_batch_predict_max_replica_count=config.evaluation_batch_predict_max_replica_count,
         evaluation_batch_explain_machine_type=config.evaluation_batch_explain_machine_type,
         evaluation_batch_explain_max_replica_count=config.evaluation_batch_explain_max_replica_count,
+        num_selected_features=config.num_selected_features,
     )
 
 
@@ -435,4 +439,73 @@ def create_distill_skip_evaluation_pipeline_job(
         except Exception as e:
             logger.warning("Failed to log experiment run for pipeline job '%s': %s", job_id, e)
     return job
+
+
+def build_feature_selection_pipeline(
+    config: TabularPipelineConfig,
+) -> tuple[str, dict[str, Any]]:
+    """Build Feature Selection pipeline template path and parameter dictionary.
+
+    Uses google_cloud_pipeline_components.preview.automl.tabular.utils.
+    """
+    return preview_tabular_utils.get_feature_selection_pipeline_and_parameters(
+        root_dir=f"{config.bucket_uri.rstrip('/')}/feature_selection",
+        project=config.project_id,
+        location=config.location,
+        target_column=config.target_column,
+        prediction_type=config.prediction_type,
+        optimization_objective=config.optimization_objective,
+        feature_selection_algorithm=config.feature_selection_algorithm,
+        feature_selection_execution_engine=config.feature_selection_engine,
+        max_selected_features=config.max_selected_features,
+        predefined_split_key=config.predefined_split_key,
+        stratified_split_key=config.stratified_split_key,
+        training_fraction=config.training_fraction,
+        validation_fraction=config.validation_fraction,
+        test_fraction=config.test_fraction,
+        weight_column=config.weight_column,
+        data_source_csv_filenames=config.data_source_csv_filenames,
+        data_source_bigquery_table_path=(
+            config.bigquery_table_path or config.data_source_bigquery_table_path
+        ),
+        bigquery_staging_full_dataset_id=config.bigquery_staging_full_dataset_id,
+        dataflow_machine_type=config.dataflow_machine_type,
+        dataflow_max_num_workers=config.dataflow_max_num_workers,
+        dataflow_disk_size_gb=config.dataflow_disk_size_gb,
+        dataflow_subnetwork=config.dataflow_subnetwork,
+        dataflow_use_public_ips=config.dataflow_use_public_ips,
+        encryption_spec_key_name=config.encryption_spec_key_name,
+    )
+
+
+def create_feature_selection_pipeline_job(
+    config: TabularPipelineConfig,
+    job_id: str = "automl-tabular-feature-selection",
+    log_experiment: bool = True,
+    credentials: Any | None = None,
+) -> aiplatform.PipelineJob:
+    """Create a Vertex AI PipelineJob for Feature Selection and Ranking."""
+    template_path, parameter_values = build_feature_selection_pipeline(config)
+    job = aiplatform.PipelineJob(
+        display_name=job_id,
+        project=config.project_id,
+        location=config.location,
+        template_path=template_path,
+        job_id=job_id,
+        pipeline_root=config.root_dir,
+        parameter_values=parameter_values,
+        enable_caching=False,
+        credentials=_get_credentials_or_anonymous(credentials),
+    )
+    if log_experiment:
+        try:
+            log_experiment_run(
+                run_name=job_id,
+                pipeline_job=job,
+                config=config,
+            )
+        except Exception as e:
+            logger.warning("Failed to log experiment run for pipeline job '%s': %s", job_id, e)
+    return job
+
 
