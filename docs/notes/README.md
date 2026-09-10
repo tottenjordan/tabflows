@@ -8,6 +8,7 @@ This directory contains persistent notes on architecture, libraries, environment
 - [Skip Architecture Search & Benchmarks](skip_architecture_search_benchmarks.md): Stage 1 vs Stage 2 performance benchmarks (-79.6% execution time, -80.4% node-hour savings), node-hour metrics, and `tuning_result_output` artifact reuse.
 - [Inference & Serving](inference.md): Online real-time endpoint deployment, Champion vs Challenger traffic splitting, latency benchmarking script (`benchmark_bakeoff_deployment.py`), Notebook 09, JSON instance prediction, batch inference execution, and endpoint resource cleanup.
 - [Evaluation & Experiment Tracking](evaluation_and_experiments.md): Model evaluation metrics (Log Loss, AUC-ROC, confusion matrix), feature importance attributions, full-lifecycle experiment tracking across pipelines, DoE campaigns, deployments, batch predictions, and `log-experiment` CLI usage.
+- [Feature Selection & Ranking](feature_selection_and_ranking.md): Standalone and integrated feature selection pipelines, information-theoretic ranking algorithms (AMI, CMIM, JMIM, MRMR), BigQuery SQL vs Dataflow execution engines, and Stage 1 embedded pruning.
 - [Tooling & Environment Management](tooling.md): Package resolution with `uv`, packaging & wheel distribution (`uv build`), GitHub Actions CI workflow (`ci.yml`, `compile_pipelines_ci.py`), PyPI default index configuration, `ruff`, `ty`, and `pytest` integration.
 
 ## Key Repository Files

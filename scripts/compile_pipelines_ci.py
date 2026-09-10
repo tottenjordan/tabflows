@@ -7,7 +7,9 @@ import sys
 from tabflows.config import TabularPipelineConfig
 from tabflows.pipeline import (
     build_automl_tabular_pipeline,
+    build_feature_selection_pipeline,
     build_skip_architecture_search_pipeline,
+    create_feature_selection_pipeline_job,
     create_tabular_pipeline_job,
     run_skip_architecture_search_pipeline,
 )
@@ -38,10 +40,18 @@ def compile_pipelines() -> None:
         stage_1_tuning_result_artifact_uri="gs://ci-test-bucket/automl_tabular_pipeline/tuning_result",
     )
 
+    print("Compiling Feature Selection & Ranking pipeline job...")
+    job3 = create_feature_selection_pipeline_job(
+        config, job_id="ci-feature-selection", log_experiment=False
+    )
+    template_path3, _ = build_feature_selection_pipeline(config)
+
     print(f"Stage 1 Pipeline Job created: {type(job1).__name__}")
     print(f"Stage 1 Pipeline Template Path: {template_path1}")
     print(f"Stage 2 Pipeline Job created: {type(job2).__name__}")
     print(f"Stage 2 Pipeline Template Path: {template_path2}")
+    print(f"Feature Selection Pipeline Job created: {type(job3).__name__}")
+    print(f"Feature Selection Pipeline Template Path: {template_path3}")
 
     if not os.path.exists(template_path1):
         print(f"ERROR: Template path does not exist: {template_path1}", file=sys.stderr)
@@ -49,6 +59,10 @@ def compile_pipelines() -> None:
 
     if not os.path.exists(template_path2):
         print(f"ERROR: Template path does not exist: {template_path2}", file=sys.stderr)
+        sys.exit(1)
+
+    if not os.path.exists(template_path3):
+        print(f"ERROR: Template path does not exist: {template_path3}", file=sys.stderr)
         sys.exit(1)
 
     print("\nSUCCESS: All AutoML Tabular pipeline templates compiled and verified successfully.")

@@ -12,6 +12,7 @@
 - **Sample Weighting**: Supports sample weight assignments (`weight_column`) for weighted loss calculation and cost-sensitive model training.
 - **Fast Skip-Evaluation Retraining Pipelines**: Accelerates production retraining runs by bypassing model evaluation stages via `create_skip_evaluation_pipeline_job`, `create_distill_skip_evaluation_pipeline_job`, `tabflows run-skip-evaluation`, `tabflows compile-skip-evaluation`, or the `--skip-evaluation` flag.
 - **Custom Ops Export**: Supports exporting additional model artifacts without custom TensorFlow operations (`export_additional_model_without_custom_ops`, `--export-without-custom-ops`) to simplify model deployment environments.
+- **Feature Selection & Feature Ranking**: Information-theoretic ranking algorithms (`AMI`, `CMIM`, `JMIM`, `MRMR`) running serverless on BigQuery SQL or Apache Beam on Dataflow (`create_feature_selection_pipeline_job`), plus embedded feature filtering in Stage 1 full search pipelines (`num_selected_features`, `apply_feature_selection_tuning`).
 - **Specialized Optimization Objectives**: Tailored binary classification objectives including `maximize-precision-at-recall` and `maximize-recall-at-precision` with target threshold constraints (`optimization_objective_recall_value`, `optimization_objective_precision_value`).
 - **Skip Architecture Search**: Accelerates model tuning by reusing Stage 1 hyperparameter tuning results (`stage_1_tuning_result_artifact_uri`) to reduce execution time by ~79.6% and training node-hour costs by ~80.4%.
 - **Feature Transform Engine (FTE)**: Supports automated and explicit column-level transformations across `categorical`, `numeric`, `timestamp`, `text_embedding` (`text`), and `auto` data types.
@@ -213,6 +214,18 @@ uv run tabflows run-skip-evaluation \
 # Compile Skip-Evaluation retraining pipeline template locally
 uv run tabflows compile-skip-evaluation --distill --export-without-custom-ops
 
+# Submit Feature Selection & Ranking pipeline using BigQuery engine and MRMR algorithm
+uv run tabflows run-feature-selection \
+    --algorithm "MRMR" \
+    --engine "bigquery" \
+    --max-selected-features 15 \
+    --staging-dataset "your-project.staging_ds" \
+    --target-column "deposit" \
+    --async-mode
+
+# Compile Feature Selection pipeline template locally
+uv run tabflows compile-feature-selection --algorithm "CMIM" --engine "bigquery" --max-selected-features 12
+
 # Generate Feature Transform Engine (FTE) JSON configuration
 uv run tabflows generate-fte-config \
     --output-path "./transform_config_fte.json" \
@@ -397,6 +410,9 @@ uv run jupyter notebook notebooks/09_bakeoff_live_deployment_and_benchmarking.ip
 
 # 10. Complete Tabular Workflows Feature Showcase Notebook
 uv run jupyter notebook notebooks/10_complete_tabular_workflows_feature_showcase.ipynb
+
+# 11. Feature Selection & Feature Ranking Notebook
+uv run jupyter notebook notebooks/11_feature_selection_and_ranking.ipynb
 ```
 
 #### Notebook Summaries
@@ -410,6 +426,7 @@ uv run jupyter notebook notebooks/10_complete_tabular_workflows_feature_showcase
 - **Notebook 08 (`08_optimization_objectives_and_targets.ipynb`)**: Specialized binary classification optimization objectives (`maximize-precision-at-recall`, `maximize-recall-at-precision`) with precision/recall target constraints (`optimization_objective_recall_value`, `optimization_objective_precision_value`) for fraud detection and marketing conversion use cases.
 - **Notebook 09 (`09_bakeoff_live_deployment_and_benchmarking.ipynb`)**: Live endpoint deployment of Bake-off teacher and distilled student models, Champion vs. Challenger traffic splitting (90/10), online prediction latency benchmarking (p50, p90, p95 response times, QPS throughput), and automatic endpoint cleanup.
 - **Notebook 10 (`10_complete_tabular_workflows_feature_showcase.ipynb`)**: Complete showcase of advanced Tabular Workflows capabilities including stratified data splitting (`stratified_split_key`), sample weighting (`weight_column`), fast skip-evaluation retraining pipelines (`create_skip_evaluation_pipeline_job`, `create_distill_skip_evaluation_pipeline_job`), and custom ops model export (`export_additional_model_without_custom_ops`).
+- **Notebook 11 (`11_feature_selection_and_ranking.ipynb`)**: High-dimensional feature selection and ranking pipelines (`create_feature_selection_pipeline_job`), comparison of information-theoretic algorithms (`AMI`, `CMIM`, `JMIM`, `MRMR`) across BigQuery and Dataflow engines, and embedded feature filtering in Stage 1 training (`num_selected_features`, `apply_feature_selection_tuning`).
 
 ### 5. Automation & Benchmark Scripts
 

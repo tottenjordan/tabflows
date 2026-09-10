@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -69,6 +69,9 @@ class TabularPipelineConfig(BaseSettings):
             "gs://cloud-samples-data/vertex-ai/tabular-workflows/datasets/bank-marketing/train.csv"
         ),
         description="CSV dataset path in GCS",
+        validation_alias=AliasChoices(
+            "DATA_SOURCE_CSV_FILENAMES", "csv_file_path", "data_source_csv_filenames"
+        ),
     )
     data_source_bigquery_table_path: str | None = Field(
         default=None, description="BigQuery table URI format bq://project.dataset.table"
@@ -147,9 +150,74 @@ class TabularPipelineConfig(BaseSettings):
         ],
         description="Worker pool spec overrides",
     )
+    dataflow_machine_type: str | None = Field(
+        default=None,
+        description="Machine type for Dataflow workers",
+        validation_alias="DATAFLOW_MACHINE_TYPE",
+    )
+    dataflow_max_num_workers: int | None = Field(
+        default=None,
+        description="Maximum number of Dataflow worker instances",
+        validation_alias="DATAFLOW_MAX_NUM_WORKERS",
+    )
+    dataflow_disk_size_gb: int | None = Field(
+        default=None,
+        description="Disk size in GB for Dataflow worker instances",
+        validation_alias="DATAFLOW_DISK_SIZE_GB",
+    )
+    encryption_spec_key_name: str | None = Field(
+        default=None,
+        description="Cloud KMS encryption key name for CMEK",
+        validation_alias="ENCRYPTION_SPEC_KEY_NAME",
+    )
     dataflow_subnetwork: str | None = Field(default=None, description="Dataflow subnetwork URI")
     dataflow_use_public_ips: bool = Field(
         default=True, description="Whether Dataflow uses public IPs"
+    )
+    dataflow_service_account: str | None = Field(
+        default=None,
+        description="Custom service account email for Dataflow jobs",
+        validation_alias="DATAFLOW_SERVICE_ACCOUNT",
+    )
+    enable_probabilistic_inference: bool = Field(
+        default=False,
+        description="Whether to enable probabilistic quantile inference",
+        validation_alias="ENABLE_PROBABILISTIC_INFERENCE",
+    )
+    quantiles: list[float] | None = Field(
+        default=None,
+        description="Quantiles for probabilistic inference (up to 5 values between 0.0 and 1.0)",
+        validation_alias="QUANTILES",
+    )
+    model_display_name: str | None = Field(
+        default=None,
+        description="Model display name registered in Vertex AI Model Registry",
+        validation_alias="MODEL_DISPLAY_NAME",
+    )
+    model_description: str | None = Field(
+        default=None,
+        description="Model description registered in Vertex AI Model Registry",
+        validation_alias="MODEL_DESCRIPTION",
+    )
+    evaluation_batch_predict_machine_type: str | None = Field(
+        default=None,
+        description="Machine type for evaluation batch predict",
+        validation_alias="EVALUATION_BATCH_PREDICT_MACHINE_TYPE",
+    )
+    evaluation_batch_predict_max_replica_count: int | None = Field(
+        default=None,
+        description="Max replica count for evaluation batch predict",
+        validation_alias="EVALUATION_BATCH_PREDICT_MAX_REPLICA_COUNT",
+    )
+    evaluation_batch_explain_machine_type: str | None = Field(
+        default=None,
+        description="Machine type for evaluation batch explain",
+        validation_alias="EVALUATION_BATCH_EXPLAIN_MACHINE_TYPE",
+    )
+    evaluation_batch_explain_max_replica_count: int | None = Field(
+        default=None,
+        description="Max replica count for evaluation batch explain",
+        validation_alias="EVALUATION_BATCH_EXPLAIN_MAX_REPLICA_COUNT",
     )
     serving_machine_type: str = Field(
         default="n1-standard-4",
@@ -188,6 +256,59 @@ class TabularPipelineConfig(BaseSettings):
             "FTE_TRANSFORMATIONS_PATH", "transform_config_path", "fte_transformations_path"
         ),
     )
+    feature_selection_algorithm: str | None = Field(
+        default=None,
+        description="Feature selection algorithm: AMI, CMIM, JMIM, MRMR",
+        validation_alias="FEATURE_SELECTION_ALGORITHM",
+    )
+    feature_selection_engine: str = Field(
+        default="bigquery",
+        description="Execution engine for feature selection: 'bigquery' or 'dataflow'",
+        validation_alias="FEATURE_SELECTION_ENGINE",
+    )
+    max_selected_features: int | None = Field(
+        default=None,
+        description="Maximum number of features to select in standalone pipeline",
+        validation_alias="MAX_SELECTED_FEATURES",
+    )
+    num_selected_features: int | None = Field(
+        default=None,
+        description="Number of features to filter down to during Stage 1 AutoML training",
+        validation_alias="NUM_SELECTED_FEATURES",
+    )
+    apply_feature_selection_tuning: bool | None = Field(
+        default=None,
+        description="Whether to tune feature selection hyperparameters in Stage 1",
+        validation_alias="APPLY_FEATURE_SELECTION_TUNING",
+    )
+    bigquery_staging_full_dataset_id: str | None = Field(
+        default=None,
+        description="BigQuery dataset for intermediate staging tables",
+        validation_alias="BIGQUERY_STAGING_FULL_DATASET_ID",
+    )
+
+    @field_validator("feature_selection_algorithm")
+    @classmethod
+    def validate_feature_selection_algorithm(cls, v: str | None) -> str | None:
+        if v is not None:
+            v_upper = v.upper()
+            allowed = {"AMI", "CMIM", "JMIM", "MRMR"}
+            if v_upper not in allowed:
+                raise ValueError(
+                    f"Invalid feature_selection_algorithm: {v}. Must be one of {sorted(allowed)}"
+                )
+            return v_upper
+        return v
+
+    @field_validator("feature_selection_engine")
+    @classmethod
+    def validate_feature_selection_engine(cls, v: str) -> str:
+        v_lower = v.lower()
+        if v_lower not in {"bigquery", "dataflow"}:
+            raise ValueError(
+                f"Invalid feature_selection_engine: {v}. Must be 'bigquery' or 'dataflow'"
+            )
+        return v_lower
 
     @property
     def root_dir(self) -> str:

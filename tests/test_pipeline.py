@@ -8,9 +8,11 @@ from tabflows.config import TabularPipelineConfig
 from tabflows.pipeline import (
     build_automl_tabular_pipeline,
     build_distill_skip_evaluation_pipeline,
+    build_feature_selection_pipeline,
     build_skip_architecture_search_pipeline,
     build_skip_evaluation_pipeline,
     create_distill_skip_evaluation_pipeline_job,
+    create_feature_selection_pipeline_job,
     create_skip_evaluation_pipeline_job,
     create_tabular_pipeline_job,
     generate_auto_transformation,
@@ -339,10 +341,11 @@ def test_build_skip_evaluation_pipeline():
     assert isinstance(template_path, str)
     assert isinstance(parameter_values, dict)
     assert parameter_values["project"] == "test-project"
-    assert parameter_values["target_column_name"] == "deposit"
-    assert parameter_values["weight_column_name"] == "weight_col"
+    assert parameter_values["target_column"] == "deposit"
+    assert parameter_values["weight_column"] == "weight_col"
     assert parameter_values["export_additional_model_without_custom_ops"] is True
-    assert "strata_col" in parameter_values["split_spec"]
+    assert parameter_values["stratified_split_key"] == "strata_col"
+    assert parameter_values.get("run_evaluation") is None
 
 
 def test_build_distill_skip_evaluation_pipeline():
@@ -359,9 +362,61 @@ def test_build_distill_skip_evaluation_pipeline():
     assert isinstance(parameter_values, dict)
     assert parameter_values["project"] == "test-project"
     assert parameter_values["run_distillation"] is True
-    assert parameter_values["weight_column_name"] == "weight_col"
+    assert parameter_values["target_column"] == "deposit"
+    assert parameter_values["weight_column"] == "weight_col"
     assert parameter_values["export_additional_model_without_custom_ops"] is True
-    assert "strata_col" in parameter_values["split_spec"]
+    assert parameter_values["stratified_split_key"] == "strata_col"
+    assert parameter_values.get("run_evaluation") is None
+
+
+def test_build_automl_tabular_pipeline_with_probabilistic_inference_and_metadata():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        enable_probabilistic_inference=True,
+        quantiles=[0.1, 0.5, 0.9],
+        model_display_name="churn-champion-v1",
+        model_description="Production classification model",
+        dataflow_service_account="sa@project.iam.gserviceaccount.com",
+        evaluation_batch_predict_machine_type="n1-highmem-8",
+        evaluation_batch_predict_max_replica_count=10,
+        evaluation_batch_explain_machine_type="n1-highmem-8",
+        evaluation_batch_explain_max_replica_count=5,
+    )
+
+    template_path, parameter_values = build_automl_tabular_pipeline(config)
+    assert isinstance(template_path, str)
+    assert parameter_values["enable_probabilistic_inference"] is True
+    assert parameter_values["quantiles"] == [0.1, 0.5, 0.9]
+    assert parameter_values["model_display_name"] == "churn-champion-v1"
+    assert parameter_values["model_description"] == "Production classification model"
+    assert parameter_values["dataflow_service_account"] == "sa@project.iam.gserviceaccount.com"
+    assert parameter_values["evaluation_batch_predict_machine_type"] == "n1-highmem-8"
+    assert parameter_values["evaluation_batch_predict_max_replica_count"] == 10
+    assert parameter_values["evaluation_batch_explain_machine_type"] == "n1-highmem-8"
+    assert parameter_values["evaluation_batch_explain_max_replica_count"] == 5
+
+
+def test_build_skip_architecture_search_pipeline_with_infrastructure_controls():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        dataflow_service_account="sa@project.iam.gserviceaccount.com",
+        evaluation_batch_predict_machine_type="n1-highmem-8",
+        evaluation_batch_predict_max_replica_count=10,
+        evaluation_batch_explain_machine_type="n1-highmem-8",
+        evaluation_batch_explain_max_replica_count=5,
+    )
+
+    template_path, parameter_values = build_skip_architecture_search_pipeline(
+        config, stage_1_tuning_result_artifact_uri="gs://test-bucket/tuning_result"
+    )
+    assert isinstance(template_path, str)
+    assert parameter_values["dataflow_service_account"] == "sa@project.iam.gserviceaccount.com"
+    assert parameter_values["evaluation_batch_predict_machine_type"] == "n1-highmem-8"
+    assert parameter_values["evaluation_batch_predict_max_replica_count"] == 10
+    assert parameter_values["evaluation_batch_explain_machine_type"] == "n1-highmem-8"
+    assert parameter_values["evaluation_batch_explain_max_replica_count"] == 5
 
 
 def test_create_skip_evaluation_pipeline_jobs():
@@ -412,6 +467,101 @@ def test_pipeline_builders_mapping_and_skip_evaluation():
     assert params2["weight_column"] == "weight_col"
     assert params2["export_additional_model_without_custom_ops"] is True
     assert params2.get("run_evaluation") is not True
+
+
+def test_build_feature_selection_pipeline_bigquery():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        target_column="deposit",
+        feature_selection_algorithm="MRMR",
+        feature_selection_engine="bigquery",
+        max_selected_features=25,
+        bigquery_table_path="bq://test-project.dataset.table",
+        bigquery_staging_full_dataset_id="test-project.staging_dataset",
+        stratified_split_key="deposit",
+        weight_column="sample_weight",
+    )
+
+    template_path, parameter_values = build_feature_selection_pipeline(config)
+    assert isinstance(template_path, str)
+    assert template_path.endswith("feature_selection_pipeline.yaml")
+    assert parameter_values["project"] == "test-project"
+    assert parameter_values["target_column"] == "deposit"
+    assert parameter_values["feature_selection_algorithm"] == "MRMR"
+    assert parameter_values["feature_selection_execution_engine"] == "bigquery"
+    assert parameter_values["max_selected_features"] == 25
+    assert parameter_values["data_source_bigquery_table_path"] == "bq://test-project.dataset.table"
+    assert parameter_values["bigquery_staging_full_dataset_id"] == "test-project.staging_dataset"
+    assert parameter_values["stratified_split_key"] == "deposit"
+    assert parameter_values["weight_column"] == "sample_weight"
+
+
+def test_build_feature_selection_pipeline_dataflow():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        target_column="deposit",
+        feature_selection_algorithm="AMI",
+        feature_selection_engine="dataflow",
+        max_selected_features=10,
+        csv_file_path="gs://test-bucket/train.csv",
+        dataflow_machine_type="n1-standard-8",
+        dataflow_max_num_workers=30,
+        dataflow_disk_size_gb=150,
+        dataflow_subnetwork="regions/us-central1/subnetworks/default",
+        dataflow_use_public_ips=False,
+    )
+
+    template_path, parameter_values = build_feature_selection_pipeline(config)
+    assert isinstance(template_path, str)
+    assert template_path.endswith("feature_selection_pipeline.yaml")
+    assert parameter_values["feature_selection_algorithm"] == "AMI"
+    assert parameter_values["feature_selection_execution_engine"] == "dataflow"
+    assert parameter_values["max_selected_features"] == 10
+    assert parameter_values["data_source_csv_filenames"] == "gs://test-bucket/train.csv"
+    assert parameter_values["dataflow_machine_type"] == "n1-standard-8"
+    assert parameter_values["dataflow_max_num_workers"] == 30
+    assert parameter_values["dataflow_disk_size_gb"] == 150
+    assert parameter_values["dataflow_subnetwork"] == "regions/us-central1/subnetworks/default"
+    assert parameter_values["dataflow_use_public_ips"] is False
+
+
+def test_create_feature_selection_pipeline_job():
+    from google.cloud import aiplatform
+
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        target_column="deposit",
+        feature_selection_algorithm="JMIM",
+        feature_selection_engine="bigquery",
+        max_selected_features=15,
+    )
+
+    with patch("tabflows.pipeline.log_experiment_run") as mock_log_exp:
+        job = create_feature_selection_pipeline_job(
+            config, job_id="test-feature-sel-job", log_experiment=True
+        )
+        assert isinstance(job, aiplatform.PipelineJob)
+        mock_log_exp.assert_called_once_with(
+            run_name="test-feature-sel-job",
+            pipeline_job=job,
+            config=config,
+        )
+
+
+def test_build_automl_tabular_pipeline_with_num_selected_features():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        target_column="deposit",
+        num_selected_features=15,
+    )
+
+    template_path, parameter_values = build_automl_tabular_pipeline(config)
+    assert isinstance(template_path, str)
+    assert parameter_values["num_selected_features"] == 15
 
 
 

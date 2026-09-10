@@ -107,4 +107,74 @@ def test_tabular_pipeline_config_stratified_split_and_skip_eval():
     assert config.weight_column == "sample_w"
 
 
+def test_tabular_pipeline_config_probabilistic_inference_and_metadata():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        enable_probabilistic_inference=True,
+        quantiles=[0.1, 0.5, 0.9],
+        model_display_name="churn-champion-v1",
+        model_description="Automated production model",
+        dataflow_service_account="sa@project.iam.gserviceaccount.com",
+        evaluation_batch_predict_machine_type="n1-highmem-8",
+        evaluation_batch_predict_max_replica_count=10,
+        evaluation_batch_explain_machine_type="n1-highmem-8",
+        evaluation_batch_explain_max_replica_count=5,
+    )
+
+    assert config.enable_probabilistic_inference is True
+    assert config.quantiles == [0.1, 0.5, 0.9]
+    assert config.model_display_name == "churn-champion-v1"
+    assert config.model_description == "Automated production model"
+    assert config.dataflow_service_account == "sa@project.iam.gserviceaccount.com"
+    assert config.evaluation_batch_predict_machine_type == "n1-highmem-8"
+    assert config.evaluation_batch_predict_max_replica_count == 10
+    assert config.evaluation_batch_explain_machine_type == "n1-highmem-8"
+    assert config.evaluation_batch_explain_max_replica_count == 5
+
+
+def test_tabular_pipeline_config_feature_selection():
+    config = TabularPipelineConfig(
+        project_id="test-project",
+        bucket_uri="gs://test-bucket",
+        feature_selection_algorithm="mrmr",
+        feature_selection_engine="BigQuery",
+        max_selected_features=20,
+        num_selected_features=15,
+        apply_feature_selection_tuning=True,
+        bigquery_staging_full_dataset_id="test-project.staging_ds",
+        dataflow_machine_type="n1-standard-4",
+        dataflow_max_num_workers=25,
+        dataflow_disk_size_gb=100,
+        encryption_spec_key_name="projects/p/locations/l/keyRings/r/cryptoKeys/k",
+    )
+
+    assert config.feature_selection_algorithm == "MRMR"
+    assert config.feature_selection_engine == "bigquery"
+    assert config.max_selected_features == 20
+    assert config.num_selected_features == 15
+    assert config.apply_feature_selection_tuning is True
+    assert config.bigquery_staging_full_dataset_id == "test-project.staging_ds"
+    assert config.dataflow_machine_type == "n1-standard-4"
+    assert config.dataflow_max_num_workers == 25
+    assert config.dataflow_disk_size_gb == 100
+    assert config.encryption_spec_key_name == "projects/p/locations/l/keyRings/r/cryptoKeys/k"
+
+
+def test_tabular_pipeline_config_feature_selection_validation_errors():
+    import pytest
+
+    with pytest.raises(ValueError, match="Invalid feature_selection_algorithm"):
+        TabularPipelineConfig(
+            project_id="test-project",
+            bucket_uri="gs://test-bucket",
+            feature_selection_algorithm="INVALID_ALGO",
+        )
+
+    with pytest.raises(ValueError, match="Invalid feature_selection_engine"):
+        TabularPipelineConfig(
+            project_id="test-project",
+            bucket_uri="gs://test-bucket",
+            feature_selection_engine="spark",
+        )
 
